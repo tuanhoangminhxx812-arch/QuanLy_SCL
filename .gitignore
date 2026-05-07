@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.pyc
+
+# Không cần push lên cloud
+Ho_so_cong_trinh/
+app.py
+app_new.py
+run.bat
+git_init.bat
+push_data.bat
+
+# Files tạm / debug
+*.csv
+*.log
+cells.txt
+test_db.txt
+test_db_2.txt
+excel_info.txt
+read_output.txt
+read_output2.txt
+extract_all_out.txt
+extract_docx_out.txt
+find_lines_out.txt
+find_lines_out2.txt
+items.txt
+check_*.py
+find_*.py
+fix_*.py
+get_*.py
+test_*.py
+extract_*.py
+recalc_db.py
+upgrade_db.py
+migrate_db.py
+replace.py
+replace_test.py
+write_form.py
+read_files.py
+app_new.py
+
+# Backup
+*_backup.*
+database_cong_trinh_backup.xlsx
+
+# Files khác không cần
+Test_TMQT.docx
+test_tmqt_output.docx
+Ctr SCL (code).docx
+Bao_cao_*.xlsx
+1. PL*.xlsx
+Mẫu 04.xlsx
+Mẫu QĐ*.docx
+Mẫu phiếu*.docx
+mẫu from*.xlsx
