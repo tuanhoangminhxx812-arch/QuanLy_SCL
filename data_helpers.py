@@ -49,6 +49,8 @@ def load_tonghop():
 def load_pm092():
     """Đọc file PM_092.xlsx - lấy giá trị thực hiện theo mã công trình.
     Trả về dict: {mã_ct: tổng_nợ}
+    Lưu ý: Một mã CT có thể xuất hiện nhiều lần trong file PM_092 (chia theo
+    nhiều phần/hạng mục). Hàm này CỘNG DỒN tất cả các giá trị của cùng một mã.
     """
     path = os.path.join(BASE_DIR, 'PM_092.xlsx')
     if not os.path.exists(path):
@@ -58,8 +60,22 @@ def load_pm092():
     result = {}
     current_ct = None
     
+    # Tìm cột chứa giá trị Nợ (có thể thay đổi vị trí giữa các phiên bản file)
+    # Mặc định là cột index 4, nhưng tìm dòng header để xác nhận
+    no_col_idx = 4
     for i, row in df.iterrows():
-        cell0 = str(row[0]).strip()
+        for j in range(len(row)):
+            cell_val = str(row[j]).strip().lower() if pd.notna(row[j]) else ''
+            if cell_val in ['nợ', 'no', 'phát sinh nợ']:
+                no_col_idx = j
+                break
+        if no_col_idx != 4:
+            break
+        if i > 15:  # Chỉ tìm trong 15 dòng đầu
+            break
+    
+    for i, row in df.iterrows():
+        cell0 = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ''
         # Tìm dòng "Công trình: VTADxxxxxx - ..."
         if cell0.startswith('Công trình:'):
             match = re.search(r'(VTAD\d+)', cell0)
@@ -68,10 +84,11 @@ def load_pm092():
         # Tìm dòng "Tổng số dư cuối kỳ _ CÔNG TRÌNH"
         if 'Tổng số dư cuối kỳ _ CÔNG TRÌNH' in cell0 and current_ct:
             try:
-                no_val = float(row[4]) if pd.notna(row[4]) else 0
+                no_val = float(row.iloc[no_col_idx]) if pd.notna(row.iloc[no_col_idx]) else 0
             except:
                 no_val = 0
-            result[current_ct] = int(no_val)
+            # CỘNG DỒN thay vì ghi đè (cùng 1 mã CT có thể xuất hiện nhiều lần)
+            result[current_ct] = result.get(current_ct, 0) + int(no_val)
             current_ct = None
     
     return result
