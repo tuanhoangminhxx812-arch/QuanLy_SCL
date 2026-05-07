@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 
 # Không cần push lên cloud
-Ho_so_cong_trinh/
+# Bỏ qua các file chạy app local
+# Ho_so_cong_trinh/ (Đã mở để push lên Cloud)
 app.py
 app_new.py
 run.bat
