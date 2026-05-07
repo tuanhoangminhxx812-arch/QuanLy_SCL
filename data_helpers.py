@@ -49,8 +49,23 @@ def load_tonghop():
 def load_pm092():
     """Đọc file PM_092.xlsx - lấy giá trị thực hiện theo mã công trình.
     Trả về dict: {mã_ct: tổng_nợ}
-    Lưu ý: Một mã CT có thể xuất hiện nhiều lần trong file PM_092 (chia theo
-    nhiều phần/hạng mục). Hàm này CỘNG DỒN tất cả các giá trị của cùng một mã.
+    
+    Cấu trúc file PM_092:
+    - "Công trình: VTADxxxxxx - ..."     -> bắt đầu 1 công trình
+    -   "Hạng mục: ..."                  -> hạng mục con
+    -     "Tài khoản: ..."               -> tài khoản kế toán
+    -       các dòng giao dịch (INV)
+    -       "Cộng phát sinh"             -> tổng phát sinh tài khoản
+    -       "Số dư cuối kỳ"              -> số dư cuối kỳ tài khoản
+    -   "Tổng số dư cuối kỳ _ HẠNG MỤC" -> tổng hạng mục (có thể gộp nhiều CT)
+    -   "Tổng số dư cuối kỳ _ CÔNG TRÌNH"-> tổng công trình (có thể gộp nhiều CT)
+    
+    LƯU Ý: Cùng 1 mã CT có thể xuất hiện nhiều lần trong file (ở các phần
+    tài khoản khác nhau). Dòng "Tổng số dư cuối kỳ _ CÔNG TRÌNH" có thể gộp
+    chung nhiều mã CT khác nhau -> KHÔNG đáng tin cho từng CT riêng lẻ.
+    
+    => Giải pháp: Đọc "Số dư cuối kỳ" (không có hậu tố) ngay sau mỗi lần
+    xuất hiện của 1 mã CT cụ thể, rồi cộng dồn.
     """
     path = os.path.join(BASE_DIR, 'PM_092.xlsx')
     if not os.path.exists(path):
@@ -59,37 +74,34 @@ def load_pm092():
     
     result = {}
     current_ct = None
-    
-    # Tìm cột chứa giá trị Nợ (có thể thay đổi vị trí giữa các phiên bản file)
-    # Mặc định là cột index 4, nhưng tìm dòng header để xác nhận
-    no_col_idx = 4
-    for i, row in df.iterrows():
-        for j in range(len(row)):
-            cell_val = str(row[j]).strip().lower() if pd.notna(row[j]) else ''
-            if cell_val in ['nợ', 'no', 'phát sinh nợ']:
-                no_col_idx = j
-                break
-        if no_col_idx != 4:
-            break
-        if i > 15:  # Chỉ tìm trong 15 dòng đầu
-            break
+    no_col_idx = 4  # Cột chứa giá trị Nợ (mặc định cột E = index 4)
     
     for i, row in df.iterrows():
         cell0 = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ''
+        
         # Tìm dòng "Công trình: VTADxxxxxx - ..."
         if cell0.startswith('Công trình:'):
             match = re.search(r'(VTAD\d+)', cell0)
             if match:
                 current_ct = match.group(1)
-        # Tìm dòng "Tổng số dư cuối kỳ _ CÔNG TRÌNH"
-        if 'Tổng số dư cuối kỳ _ CÔNG TRÌNH' in cell0 and current_ct:
+            continue
+        
+        # Tìm dòng "Số dư cuối kỳ" (KHÔNG có hậu tố _ HẠNG MỤC hay _ CÔNG TRÌNH)
+        # Đây là số dư cuối kỳ cho đúng phần tài khoản hiện tại của mã CT hiện tại
+        if cell0 == 'Số dư cuối kỳ' and current_ct:
             try:
                 no_val = float(row.iloc[no_col_idx]) if pd.notna(row.iloc[no_col_idx]) else 0
             except:
                 no_val = 0
-            # CỘNG DỒN thay vì ghi đè (cùng 1 mã CT có thể xuất hiện nhiều lần)
             result[current_ct] = result.get(current_ct, 0) + int(no_val)
+            # Không reset current_ct ở đây, vì có thể còn tài khoản khác
+            # của cùng 1 mã CT ngay phía dưới
+            continue
+        
+        # Khi gặp dòng Tổng, reset current_ct
+        if 'Tổng số dư cuối kỳ _ CÔNG TRÌNH' in cell0:
             current_ct = None
+            continue
     
     return result
 
