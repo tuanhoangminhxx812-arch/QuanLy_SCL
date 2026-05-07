@@ -158,9 +158,9 @@ with tab1:
                         st.write(f"**Quyết toán:** {fmt_full(row_data.get('Quyết toán',0))} đ")
                     with c3:
                         if pd.notna(row_data.get('Nội dung SCL')):
-                            st.write(f"**Nội dung SCL:** {row_data.get('Nội dung SCL','')}")
+                            st.markdown(f"**Nội dung SCL:**\n\n{row_data.get('Nội dung SCL','')}")
                         if pd.notna(row_data.get('Tiến độ')):
-                            st.write(f"**Tiến độ:** {row_data.get('Tiến độ','')}")
+                            st.markdown(f"**Tiến độ:**\n\n{row_data.get('Tiến độ','')}")
 
                 # Hiển thị bảng quyết toán từ database nếu có
                 db_df = load_db_data()
