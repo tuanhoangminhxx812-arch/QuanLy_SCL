@@ -35,6 +35,43 @@ def status_color(s):
     colors = {'Đang thi công':'#22c55e','Lập PAKT-Tổng dự toán':'#f59e0b','Lập kế hoạch đầu thầu':'#3b82f6','Hoàn thành':'#8b5cf6'}
     return colors.get(s, '#94a3b8')
 
+def parse_date_from_text(text, prefix):
+    import re
+    match = re.search(fr"{prefix}:\s*(\d{{1,2}})/(\d{{4}})", str(text), re.IGNORECASE)
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    return None, None
+
+def analyze_project_health(row, current_year, current_month):
+    status = str(row.get('Trạng thái', '')).strip()
+    tien_do_text = str(row.get('Tiến độ', ''))
+    khai_toan = float(row.get('Khái toán', 0)) if pd.notna(row.get('Khái toán')) else 0
+    thuc_hien = float(row.get('Thực hiện', 0)) if pd.notna(row.get('Thực hiện')) else 0
+    
+    ty_le = (thuc_hien / khai_toan * 100) if khai_toan > 0 else 0
+    
+    if status in ['Hoàn thành', 'Nghiệm thu']:
+        return "Hoàn thành", "🟢", f"Dự án đã hoàn thành. Giải ngân: {ty_le:.1f}%"
+    
+    kc_m, kc_y = parse_date_from_text(tien_do_text, 'KC')
+    ht_m, ht_y = parse_date_from_text(tien_do_text, 'HT')
+    
+    if ht_m and ht_y:
+        months_left = (ht_y - current_year) * 12 + (ht_m - current_month)
+        if months_left < 0:
+            return "Quá hạn", "🔴", f"Trễ hạn hoàn thành {-months_left} tháng (Hạn HT: {ht_m}/{ht_y}). Giải ngân mới đạt {ty_le:.1f}%"
+        elif months_left <= 2 and ty_le < 30:
+            return "Nguy cơ cao", "🟡", f"Chỉ còn {months_left} tháng đến hạn ({ht_m}/{ht_y}) nhưng giải ngân rất thấp ({ty_le:.1f}%)."
+    
+    if kc_m and kc_y:
+        months_passed = (current_year - kc_y) * 12 + (current_month - kc_m)
+        if months_passed > 2 and status in ['Lập PAKT-Tổng dự toán', 'Lập kế hoạch đầu thầu', 'Chưa xác định']:
+            return "Trễ tiến độ", "🔴", f"Đã qua mốc khởi công ({kc_m}/{kc_y}) {months_passed} tháng nhưng vẫn ở trạng thái '{status}'."
+        if months_passed > 1 and ty_le == 0 and status == 'Đang thi công':
+            return "Cần lưu ý", "🟡", f"Khởi công từ {kc_m}/{kc_y} nhưng chưa có số liệu giải ngân (0%)."
+            
+    return "Đúng tiến độ", "🔵", f"Tiến độ bình thường. Giải ngân: {ty_le:.1f}%."
+
 # Load data
 try:
     import plotly.express as px
@@ -72,6 +109,36 @@ with tab1:
         m2.metric("Tổng Giá Trị Khái Toán", f"{fmt_full(total_kh)} đ")
         m3.metric("Tổng Giá Trị Thực Hiện", f"{fmt_full(total_th)} đ")
         m4.metric("Tỷ Lệ Giải Ngân", f"{ty_le:.2f} %")
+
+        # Risk Analysis
+        now = datetime.datetime.now()
+        current_y = now.year
+        current_m = now.month
+        
+        health_data = []
+        for idx, row in df_th.iterrows():
+            ma = row.get('Mã CT', '')
+            ten = row.get('Tên công trình', '')
+            h_status, h_icon, h_insight = analyze_project_health(row, current_y, current_m)
+            health_data.append({
+                'Mã CT': ma,
+                'Tên công trình': ten,
+                'Trạng thái Sức khỏe': f"{h_icon} {h_status}",
+                'Đánh giá & Khuyến nghị': h_insight,
+                'Status_Raw': h_status
+            })
+            
+        df_health = pd.DataFrame(health_data)
+        
+        st.markdown("#### 🚨 Đánh giá & Cảnh báo rủi ro (Executive Summary)")
+        with st.container(border=True):
+            r1, r2, r3, r4 = st.columns(4)
+            r1.metric("🟢 Tốt / Hoàn thành", len(df_health[df_health['Status_Raw'] == 'Hoàn thành']))
+            r2.metric("🔵 Đúng tiến độ", len(df_health[df_health['Status_Raw'] == 'Đúng tiến độ']))
+            r3.metric("🟡 Nguy cơ cao / Lưu ý", len(df_health[df_health['Status_Raw'].isin(['Nguy cơ cao', 'Cần lưu ý'])]))
+            r4.metric("🔴 Quá hạn / Trễ", len(df_health[df_health['Status_Raw'].isin(['Quá hạn', 'Trễ tiến độ'])]))
+            
+            st.dataframe(df_health.drop(columns=['Status_Raw']), width='stretch', hide_index=True)
 
         # Charts
         if HAS_PLOTLY:
