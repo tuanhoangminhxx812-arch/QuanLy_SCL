@@ -44,19 +44,25 @@ def get_category_folder(project_name, cat_key, cat_name):
     folder_name = f"{cat_key}) {safe_folder_name(cat_name)}"
     return os.path.join(get_project_folder(project_name), folder_name)
 
+def get_safe_long_path(path):
+    abs_path = os.path.abspath(path)
+    if os.name == 'nt' and not abs_path.startswith('\\\\?\\'):
+        return "\\\\?\\" + os.path.normpath(abs_path)
+    return abs_path
+
 def ensure_project_folders(project_name):
     project_dir = get_project_folder(project_name)
-    # Add Windows long path prefix to avoid WinError 206
-    long_project_dir = "\\\\?\\" + os.path.normpath(os.path.abspath(project_dir))
+    # Add Windows long path prefix to avoid WinError 206 only on Windows
+    long_project_dir = get_safe_long_path(project_dir)
     os.makedirs(long_project_dir, exist_ok=True)
     for cat_key, cat_name in DANH_MUC_HO_SO:
         cat_dir = get_category_folder(project_name, cat_key, cat_name)
-        long_cat_dir = "\\\\?\\" + os.path.normpath(os.path.abspath(cat_dir))
+        long_cat_dir = get_safe_long_path(cat_dir)
         os.makedirs(long_cat_dir, exist_ok=True)
     return project_dir
 
 def list_files_in_folder(folder_path):
-    long_folder_path = "\\\\?\\" + os.path.normpath(os.path.abspath(folder_path))
+    long_folder_path = get_safe_long_path(folder_path)
     if not os.path.exists(long_folder_path): return []
     return [f for f in os.listdir(long_folder_path) if os.path.isfile(os.path.join(long_folder_path, f))]
 
