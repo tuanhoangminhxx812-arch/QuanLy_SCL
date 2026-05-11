@@ -94,27 +94,7 @@ if not df_th.empty and 'Mã CT' in df_th.columns:
 tab1, tab2 = st.tabs(["📊 Bảng số liệu chi tiết các dự án SCL", "📄 Bảng thuyết minh quyết toán"])
 
 with tab1:
-    col_export, _ = st.columns([3, 7])
-    with col_export:
-        if st.button("📊 Xuất báo cáo", type="primary", key="cloud_export"):
-            try:
-                from hangmuc_report import generate_hangmuc
-                res = generate_hangmuc()
-                if res is not None:
-                    hangmuc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HangMuc.xlsx')
-                    if os.path.exists(hangmuc_path):
-                        with open(hangmuc_path, "rb") as f:
-                            file_data = f.read()
-                        st.download_button(
-                            "📥 Tải HangMuc.xlsx", data=file_data,
-                            file_name="HangMuc.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key="cloud_dl"
-                        )
-                else:
-                    st.warning("Chưa có dữ liệu để xuất.")
-            except Exception as e:
-                st.error(f"Lỗi xuất báo cáo: {e}")
+
 
     if df_th.empty:
         st.warning("Chưa có dữ liệu. Vui lòng đặt file **Tổng hợp.xlsx** vào thư mục ứng dụng.")
@@ -283,12 +263,9 @@ with tab1:
 
         # Download
         st.divider()
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("📥 Tải lại dữ liệu PM_092", key="cloud_reload_pm"):
-                st.rerun()
-        with col_btn2:
-            if st.button("📊 Xuất báo cáo", type="primary", key="cloud_export"):
+        _, col_btn, _ = st.columns([4, 2, 4])
+        with col_btn:
+            if st.button("📊 Xuất báo cáo", type="primary", key="cloud_export", use_container_width=True):
                 try:
                     from hangmuc_report import generate_hangmuc
                     result = generate_hangmuc()
