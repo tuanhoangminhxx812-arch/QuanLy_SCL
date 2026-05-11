@@ -50,6 +50,20 @@ def get_safe_long_path(path):
         return "\\\\?\\" + os.path.normpath(abs_path)
     return abs_path
 
+def open_file_external(folder_path, file_name):
+    """Mở file bằng ứng dụng mặc định, xử lý đường dẫn dài.
+    Copy file ra thư mục temp (path ngắn) rồi mở từ đó.
+    """
+    import shutil, tempfile
+    long_folder = get_safe_long_path(folder_path)
+    src = os.path.join(long_folder, file_name)
+    # Tạo thư mục temp ngắn gọn
+    tmp_dir = os.path.join(tempfile.gettempdir(), 'scl_viewer')
+    os.makedirs(tmp_dir, exist_ok=True)
+    dst = os.path.join(tmp_dir, file_name)
+    shutil.copy2(src, dst)
+    os.startfile(dst)
+
 def ensure_project_folders(project_name):
     project_dir = get_project_folder(project_name)
     # Add Windows long path prefix to avoid WinError 206 only on Windows
@@ -127,3 +141,99 @@ def parse_num_val(s):
     if not s: return 0
     try: return int(str(s).replace(',', '').replace('.', '').strip())
     except: return 0
+
+# ============================================================
+# CHI TIẾT CÔNG TRÌNH — Database mới
+# ============================================================
+
+CHITIET_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'chi_tiet_cong_trinh.xlsx')
+
+LOAI_HOP_DONG = ['Xây lắp', 'Thiết bị', 'Tư vấn thiết kế', 'Tư vấn giám sát', 'Khác']
+HINH_THUC_HD = ['Trọn gói', 'Hợp đồng theo đơn giá cố định', 'Hợp đồng theo đơn giá điều chỉnh', 'Hợp đồng theo thời gian', 'Khác']
+
+# Column definitions for each sheet
+PAKT_DT_COLS = ['Mã CT', 'Số QĐ phê duyệt', 'Ngày phê duyệt', 'Giá trị dự toán']
+KH_DAU_THAU_COLS = ['Mã CT', 'Loại gói', 'Số QĐ phê duyệt KH', 'Ngày phê duyệt', 'GT gói thầu']
+KQ_DAU_THAU_COLS = ['Mã CT', 'Loại gói', 'Số QĐ phê duyệt KQ', 'Ngày phê duyệt', 'GT gói thầu trúng']
+HOP_DONG_COLS = [
+    'Mã CT', 'Loại HĐ', 'Gói thầu', 'Tên nhà thầu', 'Hình thức HĐ',
+    'Số hợp đồng', 'Ngày ký HĐ', 'Ngày hiệu lực', 'Tên hợp đồng',
+    'Giá trị HĐ', 'Giá trị bảo lãnh', 'Thời gian thực hiện',
+    'Giá trị thực hiện HĐ', 'Số BB nghiệm thu', 'Ngày nghiệm thu'
+]
+VAT_TU_COLS = ['Mã CT', 'TCty cấp', 'ĐV cấp']
+NGHIEM_THU_QT_COLS = ['Mã CT', 'Ngày nghiệm thu CT', 'Giá trị quyết toán CT', 'Ghi chú']
+
+SHEET_COLS_MAP = {
+    'pakt_dt': PAKT_DT_COLS,
+    'kh_dau_thau': KH_DAU_THAU_COLS,
+    'kq_dau_thau': KQ_DAU_THAU_COLS,
+    'hop_dong': HOP_DONG_COLS,
+    'vat_tu': VAT_TU_COLS,
+    'nghiem_thu_qt': NGHIEM_THU_QT_COLS,
+}
+
+def _ensure_chitiet_file():
+    """Tạo file chi_tiet_cong_trinh.xlsx nếu chưa tồn tại."""
+    if not os.path.exists(CHITIET_FILE):
+        with pd.ExcelWriter(CHITIET_FILE, engine='openpyxl') as writer:
+            for sheet_name, cols in SHEET_COLS_MAP.items():
+                pd.DataFrame(columns=cols).to_excel(writer, sheet_name=sheet_name, index=False)
+
+def load_chitiet_sheet(sheet_name):
+    """Đọc 1 sheet từ chi_tiet_cong_trinh.xlsx."""
+    _ensure_chitiet_file()
+    try:
+        df = pd.read_excel(CHITIET_FILE, sheet_name=sheet_name)
+        return df
+    except Exception:
+        return pd.DataFrame(columns=SHEET_COLS_MAP.get(sheet_name, []))
+
+def save_chitiet_sheet(sheet_name, df):
+    """Ghi 1 sheet vào chi_tiet_cong_trinh.xlsx (giữ nguyên các sheet khác)."""
+    _ensure_chitiet_file()
+    # Read all existing sheets
+    all_sheets = {}
+    try:
+        with pd.ExcelFile(CHITIET_FILE) as xls:
+            for s in xls.sheet_names:
+                all_sheets[s] = pd.read_excel(xls, sheet_name=s)
+    except Exception:
+        pass
+    # Update target sheet
+    all_sheets[sheet_name] = df
+    # Ensure all sheets exist
+    for s, cols in SHEET_COLS_MAP.items():
+        if s not in all_sheets:
+            all_sheets[s] = pd.DataFrame(columns=cols)
+    # Write
+    with pd.ExcelWriter(CHITIET_FILE, engine='openpyxl') as writer:
+        for s_name in SHEET_COLS_MAP.keys():
+            if s_name in all_sheets:
+                all_sheets[s_name].to_excel(writer, sheet_name=s_name, index=False)
+
+def load_chitiet_by_ma(sheet_name, ma_ct):
+    """Đọc dữ liệu theo Mã CT từ 1 sheet."""
+    df = load_chitiet_sheet(sheet_name)
+    if df.empty or 'Mã CT' not in df.columns:
+        return pd.DataFrame(columns=SHEET_COLS_MAP.get(sheet_name, []))
+    return df[df['Mã CT'].astype(str).str.strip() == str(ma_ct).strip()].copy()
+
+def save_chitiet_by_ma(sheet_name, ma_ct, new_data_df):
+    """Ghi dữ liệu cho 1 Mã CT vào sheet (xóa dữ liệu cũ của CT đó, thay bằng mới)."""
+    df = load_chitiet_sheet(sheet_name)
+    # Remove old records for this project
+    if not df.empty and 'Mã CT' in df.columns:
+        df = df[df['Mã CT'].astype(str).str.strip() != str(ma_ct).strip()]
+    # Append new data
+    if not new_data_df.empty:
+        df = pd.concat([df, new_data_df], ignore_index=True)
+    save_chitiet_sheet(sheet_name, df)
+
+def load_hopdong_list(ma_ct):
+    """Đọc danh sách hợp đồng của 1 CT."""
+    return load_chitiet_by_ma('hop_dong', ma_ct)
+
+def save_hopdong_list(ma_ct, hd_df):
+    """Lưu danh sách hợp đồng của 1 CT."""
+    save_chitiet_by_ma('hop_dong', ma_ct, hd_df)

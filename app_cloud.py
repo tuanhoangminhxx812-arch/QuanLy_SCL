@@ -5,7 +5,7 @@ import re
 import datetime
 from io import BytesIO
 from data_helpers import load_tonghop, load_pm092, get_trang_thai_list
-from form_module import load_db_data, DANH_MUC_HO_SO, get_category_folder, list_files_in_folder
+from form_module import load_db_data
 
 st.set_page_config(page_title="Quản lý SCL", layout="wide")
 
@@ -259,67 +259,61 @@ with tab1:
                                     'Chênh lệch': st.column_config.NumberColumn(format="%,d"),
                                 })
 
-                # Hiển thị Hồ sơ đính kèm
+                # Hiển thị Bảng theo dõi HangMuc
                 st.divider()
-                st.markdown("#### 📂 Hồ sơ đính kèm (Chỉ xem)")
-                has_any_files = False
+                st.markdown("#### 📊 Bảng theo dõi tiến độ (HangMuc)")
                 
-                if 'viewing_file' not in st.session_state:
-                    st.session_state.viewing_file = None
-                
-                for cat_key, cat_name in DANH_MUC_HO_SO:
-                    cat_folder = get_category_folder(ten_ct, cat_key, cat_name)
-                    existing_files = list_files_in_folder(cat_folder)
-                    if existing_files:
-                        has_any_files = True
-                        st.markdown(f"**{cat_key}) {cat_name}**")
-                        for file_name in existing_files:
-                            file_path = os.path.join(cat_folder, file_name)
-                            ext = file_name.lower().split('.')[-1]
-                            col_f1, col_f2, col_f3 = st.columns([6, 2, 2])
-                            with col_f1:
-                                st.caption(f"📎 {file_name}")
-                            with col_f2:
-                                file_size = os.path.getsize(file_path)
-                                size_str = f"{file_size/1024:.1f} KB" if file_size < 1024*1024 else f"{file_size/1024/1024:.1f} MB"
-                                st.caption(f"({size_str})")
-                            with col_f3:
-                                if ext == 'pdf':
-                                    if st.button("👁️ Xem PDF", key=f"view_{cat_key}_{file_name}"):
-                                        st.session_state.viewing_file = file_path
-                                        st.rerun()
-                                elif ext in ['jpg', 'jpeg', 'png']:
-                                    if st.button("🖼️ Xem Hình", key=f"view_{cat_key}_{file_name}"):
-                                        st.session_state.viewing_file = file_path
-                                        st.rerun()
-                                else:
-                                    st.caption("⚠️ Không hỗ trợ xem online")
-                if not has_any_files:
-                    st.info("Chưa có hồ sơ đính kèm.")
-                
-                # Hiển thị trình xem file
-                if st.session_state.viewing_file and os.path.exists(st.session_state.viewing_file):
-                    st.divider()
-                    col_close1, col_close2 = st.columns([8, 2])
-                    with col_close1:
-                        st.markdown(f"##### 🔍 Đang xem file: `{os.path.basename(st.session_state.viewing_file)}`")
-                    with col_close2:
-                        if st.button("✖️ Đóng File", key="close_view"):
-                            st.session_state.viewing_file = None
-                            st.rerun()
-                    
-                    file_path = st.session_state.viewing_file
-                    ext = file_path.lower().split('.')[-1]
-                    if ext == 'pdf':
-                        import base64
-                        with open(file_path, "rb") as f:
-                            base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                        pdf_display = f'<div oncontextmenu="return false;" style="user-select: none;"><iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="800" type="application/pdf" style="border: 1px solid #ccc;"></iframe></div>'
-                        st.markdown(pdf_display, unsafe_allow_html=True)
-                    elif ext in ['jpg', 'jpeg', 'png']:
-                        st.markdown('<div oncontextmenu="return false;" style="user-select: none;">', unsafe_allow_html=True)
-                        st.image(file_path, use_container_width=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
+                hangmuc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HangMuc.xlsx')
+                if os.path.exists(hangmuc_path):
+                    try:
+                        hm_df = pd.read_excel(hangmuc_path)
+                        hm_row = hm_df[hm_df['Mã công trình'].astype(str).str.strip() == sel_ma]
+                        if not hm_row.empty:
+                            r = hm_row.iloc[0]
+                            
+                            # PAKT-DT
+                            with st.container(border=True):
+                                st.markdown("**📋 PAKT-DT**")
+                                c1, c2 = st.columns(2)
+                                with c1:
+                                    st.write(f"Số QĐ: {r.get('PAKT-DT Số QĐ ngày duyệt', '')}")
+                                with c2:
+                                    st.write(f"Giá trị DT: {r.get('PAKT-DT Giá trị DT', 0)} triệu đ")
+                            
+                            # Đấu thầu
+                            with st.container(border=True):
+                                st.markdown("**📦 Kế hoạch & Kết quả đấu thầu**")
+                                c1, c2 = st.columns(2)
+                                with c1:
+                                    st.markdown("*Gói XL:*")
+                                    st.write(f"KH: {r.get('KH ĐT Gói XL Số QĐ', '')} — {r.get('KH ĐT Gói XL GT', 0)} tr.đ")
+                                    st.write(f"KQ: {r.get('KQ ĐT Gói XL Số QĐ', '')} — {r.get('KQ ĐT Gói XL GT', 0)} tr.đ")
+                                    st.write(f"HĐ: {r.get('KQ ĐT Gói XL Số HĐ', '')} — {r.get('KQ ĐT Gói XL GT HĐ', 0)} tr.đ")
+                                with c2:
+                                    st.markdown("*Gói TB:*")
+                                    st.write(f"KH: {r.get('KH ĐT Gói TB Số QĐ', '')} — {r.get('KH ĐT Gói TB GT', 0)} tr.đ")
+                                    st.write(f"KQ: {r.get('KQ ĐT Gói TB Số QĐ', '')} — {r.get('KQ ĐT Gói TB GT', 0)} tr.đ")
+                                    st.write(f"HĐ: {r.get('KQ ĐT Gói TB Số HĐ', '')} — {r.get('KQ ĐT Gói TB GT HĐ', 0)} tr.đ")
+                            
+                            # Thi công & Tiến độ
+                            with st.container(border=True):
+                                st.markdown("**🏗️ Thi công & Tiến độ**")
+                                c1, c2, c3 = st.columns(3)
+                                with c1:
+                                    st.write(f"Đơn vị TC: {r.get('Đơn vị thi công', '')}")
+                                    st.write(f"Ngày KC: {r.get('Ngày khởi công', '')}")
+                                with c2:
+                                    st.write(f"KL thực hiện: {r.get('KL thực hiện GT', 0)} tr.đ ({r.get('KL thực hiện %', 0)}%)")
+                                    st.write(f"KL thanh toán: {r.get('KL thanh toán GT', 0)} tr.đ ({r.get('KL thanh toán %', 0)}%)")
+                                with c3:
+                                    st.write(f"Ngày NT: {r.get('Ngày nghiệm thu', '')}")
+                                    st.write(f"GT Quyết toán: {r.get('Giá trị quyết toán', 0)} tr.đ")
+                        else:
+                            st.info("Chưa có dữ liệu HangMuc cho công trình này.")
+                    except Exception as e:
+                        st.warning(f"Không đọc được HangMuc.xlsx: {e}")
+                else:
+                    st.info("Chưa có file HangMuc.xlsx. Vui lòng xuất báo cáo từ app nhập liệu.")
 
 with tab2:
     st.header("📄 Bảng thuyết minh quyết toán")
