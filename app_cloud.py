@@ -281,46 +281,35 @@ with tab1:
                                     'Chênh lệch': st.column_config.NumberColumn(format="%,d"),
                                 })
 
-                # Hiển thị Chi tiết hồ sơ theo hạng mục
-                st.divider()
-                st.markdown("#### 📋 Chi tiết hồ sơ theo hạng mục")
-                
-                from form_module import load_chitiet_by_ma, load_hopdong_list
-                
-                t1, t2, t3, t4, t5, t6 = st.tabs([
-                    "1. PAKT-Dự toán", "2. KH Đấu thầu", "3. KQ Đấu thầu", 
-                    "4. Hợp đồng", "5. Vật tư", "6. Nghiệm thu - QT"
-                ])
-                
-                with t1:
-                    df_pakt = load_chitiet_by_ma('pakt_dt', sel_ma)
-                    if not df_pakt.empty: st.dataframe(df_pakt, hide_index=True, width='stretch')
-                    else: st.info("Chưa có dữ liệu.")
-                
-                with t2:
-                    df_kh = load_chitiet_by_ma('kh_dau_thau', sel_ma)
-                    if not df_kh.empty: st.dataframe(df_kh, hide_index=True, width='stretch')
-                    else: st.info("Chưa có dữ liệu.")
-                    
-                with t3:
-                    df_kq = load_chitiet_by_ma('kq_dau_thau', sel_ma)
-                    if not df_kq.empty: st.dataframe(df_kq, hide_index=True, width='stretch')
-                    else: st.info("Chưa có dữ liệu.")
-                    
-                with t4:
-                    df_hd = load_hopdong_list(sel_ma)
-                    if not df_hd.empty: st.dataframe(df_hd, hide_index=True, width='stretch')
-                    else: st.info("Chưa có dữ liệu.")
-                    
-                with t5:
-                    df_vt = load_chitiet_by_ma('vat_tu', sel_ma)
-                    if not df_vt.empty: st.dataframe(df_vt, hide_index=True, width='stretch')
-                    else: st.info("Chưa có dữ liệu.")
-                    
-                with t6:
-                    df_nt = load_chitiet_by_ma('nghiem_thu_qt', sel_ma)
-                    if not df_nt.empty: st.dataframe(df_nt, hide_index=True, width='stretch')
-                    else: st.info("Chưa có dữ liệu.")
+        # Download
+        st.divider()
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("📥 Tải lại dữ liệu PM_092", key="cloud_reload_pm"):
+                st.rerun()
+        with col_btn2:
+            if st.button("📊 Xuất báo cáo", type="primary", key="cloud_export"):
+                try:
+                    from hangmuc_report import generate_hangmuc
+                    result = generate_hangmuc()
+                    if result is not None:
+                        st.success(f"✅ Đã xuất HangMuc.xlsx thành công! ({len(result)} công trình)")
+                        hangmuc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HangMuc.xlsx')
+                        if os.path.exists(hangmuc_path):
+                            with open(hangmuc_path, "rb") as f:
+                                file_data = f.read()
+                            st.download_button(
+                                "📥 Tải HangMuc.xlsx", data=file_data,
+                                file_name="HangMuc.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="cloud_dl_hm"
+                            )
+                        else:
+                            st.error("Lỗi: Không tìm thấy file HangMuc.xlsx vừa được xuất.")
+                    else:
+                        st.warning("Chưa có dữ liệu để xuất.")
+                except Exception as e:
+                    st.error(f"Lỗi xuất báo cáo: {e}")
 
 with tab2:
     st.header("📄 Bảng thuyết minh quyết toán")
