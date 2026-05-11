@@ -94,6 +94,28 @@ if not df_th.empty and 'Mã CT' in df_th.columns:
 tab1, tab2 = st.tabs(["📊 Bảng số liệu chi tiết các dự án SCL", "📄 Bảng thuyết minh quyết toán"])
 
 with tab1:
+    col_export, _ = st.columns([3, 7])
+    with col_export:
+        if st.button("📊 Xuất báo cáo", type="primary", key="cloud_export"):
+            try:
+                from hangmuc_report import generate_hangmuc
+                res = generate_hangmuc()
+                if res is not None:
+                    hangmuc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HangMuc.xlsx')
+                    if os.path.exists(hangmuc_path):
+                        with open(hangmuc_path, "rb") as f:
+                            file_data = f.read()
+                        st.download_button(
+                            "📥 Tải HangMuc.xlsx", data=file_data,
+                            file_name="HangMuc.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="cloud_dl"
+                        )
+                else:
+                    st.warning("Chưa có dữ liệu để xuất.")
+            except Exception as e:
+                st.error(f"Lỗi xuất báo cáo: {e}")
+
     if df_th.empty:
         st.warning("Chưa có dữ liệu. Vui lòng đặt file **Tổng hợp.xlsx** vào thư mục ứng dụng.")
     else:
@@ -259,61 +281,46 @@ with tab1:
                                     'Chênh lệch': st.column_config.NumberColumn(format="%,d"),
                                 })
 
-                # Hiển thị Bảng theo dõi HangMuc
+                # Hiển thị Chi tiết hồ sơ theo hạng mục
                 st.divider()
-                st.markdown("#### 📊 Bảng theo dõi tiến độ (HangMuc)")
+                st.markdown("#### 📋 Chi tiết hồ sơ theo hạng mục")
                 
-                hangmuc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HangMuc.xlsx')
-                if os.path.exists(hangmuc_path):
-                    try:
-                        hm_df = pd.read_excel(hangmuc_path)
-                        hm_row = hm_df[hm_df['Mã công trình'].astype(str).str.strip() == sel_ma]
-                        if not hm_row.empty:
-                            r = hm_row.iloc[0]
-                            
-                            # PAKT-DT
-                            with st.container(border=True):
-                                st.markdown("**📋 PAKT-DT**")
-                                c1, c2 = st.columns(2)
-                                with c1:
-                                    st.write(f"Số QĐ: {r.get('PAKT-DT Số QĐ ngày duyệt', '')}")
-                                with c2:
-                                    st.write(f"Giá trị DT: {r.get('PAKT-DT Giá trị DT', 0)} triệu đ")
-                            
-                            # Đấu thầu
-                            with st.container(border=True):
-                                st.markdown("**📦 Kế hoạch & Kết quả đấu thầu**")
-                                c1, c2 = st.columns(2)
-                                with c1:
-                                    st.markdown("*Gói XL:*")
-                                    st.write(f"KH: {r.get('KH ĐT Gói XL Số QĐ', '')} — {r.get('KH ĐT Gói XL GT', 0)} tr.đ")
-                                    st.write(f"KQ: {r.get('KQ ĐT Gói XL Số QĐ', '')} — {r.get('KQ ĐT Gói XL GT', 0)} tr.đ")
-                                    st.write(f"HĐ: {r.get('KQ ĐT Gói XL Số HĐ', '')} — {r.get('KQ ĐT Gói XL GT HĐ', 0)} tr.đ")
-                                with c2:
-                                    st.markdown("*Gói TB:*")
-                                    st.write(f"KH: {r.get('KH ĐT Gói TB Số QĐ', '')} — {r.get('KH ĐT Gói TB GT', 0)} tr.đ")
-                                    st.write(f"KQ: {r.get('KQ ĐT Gói TB Số QĐ', '')} — {r.get('KQ ĐT Gói TB GT', 0)} tr.đ")
-                                    st.write(f"HĐ: {r.get('KQ ĐT Gói TB Số HĐ', '')} — {r.get('KQ ĐT Gói TB GT HĐ', 0)} tr.đ")
-                            
-                            # Thi công & Tiến độ
-                            with st.container(border=True):
-                                st.markdown("**🏗️ Thi công & Tiến độ**")
-                                c1, c2, c3 = st.columns(3)
-                                with c1:
-                                    st.write(f"Đơn vị TC: {r.get('Đơn vị thi công', '')}")
-                                    st.write(f"Ngày KC: {r.get('Ngày khởi công', '')}")
-                                with c2:
-                                    st.write(f"KL thực hiện: {r.get('KL thực hiện GT', 0)} tr.đ ({r.get('KL thực hiện %', 0)}%)")
-                                    st.write(f"KL thanh toán: {r.get('KL thanh toán GT', 0)} tr.đ ({r.get('KL thanh toán %', 0)}%)")
-                                with c3:
-                                    st.write(f"Ngày NT: {r.get('Ngày nghiệm thu', '')}")
-                                    st.write(f"GT Quyết toán: {r.get('Giá trị quyết toán', 0)} tr.đ")
-                        else:
-                            st.info("Chưa có dữ liệu HangMuc cho công trình này.")
-                    except Exception as e:
-                        st.warning(f"Không đọc được HangMuc.xlsx: {e}")
-                else:
-                    st.info("Chưa có file HangMuc.xlsx. Vui lòng xuất báo cáo từ app nhập liệu.")
+                from form_module import load_chitiet_by_ma, load_hopdong_list
+                
+                t1, t2, t3, t4, t5, t6 = st.tabs([
+                    "1. PAKT-Dự toán", "2. KH Đấu thầu", "3. KQ Đấu thầu", 
+                    "4. Hợp đồng", "5. Vật tư", "6. Nghiệm thu - QT"
+                ])
+                
+                with t1:
+                    df_pakt = load_chitiet_by_ma('pakt_dt', sel_ma)
+                    if not df_pakt.empty: st.dataframe(df_pakt, hide_index=True, width='stretch')
+                    else: st.info("Chưa có dữ liệu.")
+                
+                with t2:
+                    df_kh = load_chitiet_by_ma('kh_dau_thau', sel_ma)
+                    if not df_kh.empty: st.dataframe(df_kh, hide_index=True, width='stretch')
+                    else: st.info("Chưa có dữ liệu.")
+                    
+                with t3:
+                    df_kq = load_chitiet_by_ma('kq_dau_thau', sel_ma)
+                    if not df_kq.empty: st.dataframe(df_kq, hide_index=True, width='stretch')
+                    else: st.info("Chưa có dữ liệu.")
+                    
+                with t4:
+                    df_hd = load_hopdong_list(sel_ma)
+                    if not df_hd.empty: st.dataframe(df_hd, hide_index=True, width='stretch')
+                    else: st.info("Chưa có dữ liệu.")
+                    
+                with t5:
+                    df_vt = load_chitiet_by_ma('vat_tu', sel_ma)
+                    if not df_vt.empty: st.dataframe(df_vt, hide_index=True, width='stretch')
+                    else: st.info("Chưa có dữ liệu.")
+                    
+                with t6:
+                    df_nt = load_chitiet_by_ma('nghiem_thu_qt', sel_ma)
+                    if not df_nt.empty: st.dataframe(df_nt, hide_index=True, width='stretch')
+                    else: st.info("Chưa có dữ liệu.")
 
 with tab2:
     st.header("📄 Bảng thuyết minh quyết toán")
