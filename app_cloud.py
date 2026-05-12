@@ -32,7 +32,7 @@ def fmt_full(v):
 
 def status_color(s):
     s = str(s).strip()
-    colors = {'Đang thi công':'#22c55e','Lập PAKT-Tổng dự toán':'#f59e0b','Lập kế hoạch đầu thầu':'#3b82f6','Hoàn thành':'#8b5cf6'}
+    colors = {'Đang thi công':'#22c55e','Lập PAKT-Tổng dự toán':'#f59e0b','Lập kế hoạch đấu thầu':'#3b82f6','Hoàn thành':'#8b5cf6'}
     return colors.get(s, '#94a3b8')
 
 def parse_date_from_text(text, prefix):
@@ -65,7 +65,7 @@ def analyze_project_health(row, current_year, current_month):
     
     if kc_m and kc_y:
         months_passed = (current_year - kc_y) * 12 + (current_month - kc_m)
-        if months_passed > 2 and status in ['Lập PAKT-Tổng dự toán', 'Lập kế hoạch đầu thầu', 'Chưa xác định']:
+        if months_passed > 2 and status in ['Lập PAKT-Tổng dự toán', 'Lập kế hoạch đấu thầu', 'Chưa xác định']:
             return "Trễ tiến độ", "🔴", f"Đã qua mốc khởi công ({kc_m}/{kc_y}) {months_passed} tháng nhưng vẫn ở trạng thái '{status}'."
         if months_passed > 1 and ty_le == 0 and status == 'Đang thi công':
             return "Cần lưu ý", "🟡", f"Khởi công từ {kc_m}/{kc_y} nhưng chưa có số liệu giải ngân (0%)."

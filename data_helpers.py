@@ -111,7 +111,7 @@ def get_trang_thai_list():
     return [
         'Đang thi công',
         'Lập PAKT-Tổng dự toán',
-        'Lập kế hoạch đầu thầu',
+        'Lập kế hoạch đấu thầu',
         'Hoàn thành',
         'Nghiệm thu',
     ]
@@ -120,3 +120,42 @@ def get_trang_thai_list():
 def get_nguon_list():
     """Danh sách nguồn"""
     return ['PM_092', 'Tổng Hợp']
+
+
+def load_gia_tri_hop_dong():
+    """Đọc giá trị hợp đồng cho mỗi công trình.
+    Lấy từ sheet kq_dau_thau trong chi_tiet_cong_trinh.xlsx.
+    Ưu tiên cột 'Giá trị hợp đồng', fallback 'GT gói thầu trúng'.
+    Cộng giá trị của gói XL + TB.
+    Trả về dict: {Mã CT: tổng giá trị HĐ}
+    """
+    chitiet_path = os.path.join(BASE_DIR, 'chi_tiet_cong_trinh.xlsx')
+    if not os.path.exists(chitiet_path):
+        return {}
+    try:
+        df = pd.read_excel(chitiet_path, sheet_name='kq_dau_thau')
+    except Exception:
+        return {}
+    if df.empty or 'Mã CT' not in df.columns:
+        return {}
+    
+    result = {}
+    for _, row in df.iterrows():
+        ma = str(row.get('Mã CT', '')).strip()
+        if not ma:
+            continue
+        # Ưu tiên Giá trị hợp đồng, fallback GT gói thầu trúng
+        gt = row.get('Giá trị hợp đồng', 0)
+        try:
+            gt = int(float(gt)) if pd.notna(gt) else 0
+        except:
+            gt = 0
+        if gt == 0:
+            gt = row.get('GT gói thầu trúng', 0)
+            try:
+                gt = int(float(gt)) if pd.notna(gt) else 0
+            except:
+                gt = 0
+        result[ma] = result.get(ma, 0) + gt
+    return result
+

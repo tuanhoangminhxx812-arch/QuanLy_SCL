@@ -154,7 +154,7 @@ HINH_THUC_HD = ['Trọn gói', 'Hợp đồng theo đơn giá cố định', 'H�
 # Column definitions for each sheet
 PAKT_DT_COLS = ['Mã CT', 'Số QĐ phê duyệt', 'Ngày phê duyệt', 'Giá trị dự toán']
 KH_DAU_THAU_COLS = ['Mã CT', 'Loại gói', 'Số QĐ phê duyệt KH', 'Ngày phê duyệt', 'GT gói thầu']
-KQ_DAU_THAU_COLS = ['Mã CT', 'Loại gói', 'Số QĐ phê duyệt KQ', 'Ngày phê duyệt', 'GT gói thầu trúng']
+KQ_DAU_THAU_COLS = ['Mã CT', 'Loại gói', 'Số QĐ phê duyệt KQ', 'Ngày phê duyệt', 'GT gói thầu trúng', 'Số hợp đồng', 'Giá trị hợp đồng']
 HOP_DONG_COLS = [
     'Mã CT', 'Loại HĐ', 'Gói thầu', 'Tên nhà thầu', 'Hình thức HĐ',
     'Số hợp đồng', 'Ngày ký HĐ', 'Ngày hiệu lực', 'Tên hợp đồng',
