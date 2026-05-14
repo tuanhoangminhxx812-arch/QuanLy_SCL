@@ -136,9 +136,8 @@ db_df=load_db_data()
 
 # ── Sidebar ──
 with st.sidebar:
-    st.markdown('<p class="sidebar-logo">⚡ QUẢN LÝ SCL</p>',unsafe_allow_html=True)
-    st.markdown('<p class="sidebar-sub">Công ty Điện lực Vũng Tàu</p>',unsafe_allow_html=True)
-    st.markdown('<p style="color:rgba(255,255,255,.6);font-size:12px;margin-top:-8px">Hệ thống quản lý Quyết toán Sửa chữa lớn</p>',unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-logo" style="font-size: 28px !important; line-height: 1.3; margin-bottom: 5px;">Công ty Điện lực Vũng Tàu</p>',unsafe_allow_html=True)
+    st.markdown('<p style="color:#ffffff; font-size: 18px; font-weight: 500; margin-top: 0px; margin-bottom: 15px; line-height: 1.4;">Hệ thống quản lý Quyết toán Sửa chữa lớn</p>',unsafe_allow_html=True)
     st.divider()
     page=st.radio("📂 Chuyên mục",
         ["📊 Tổng quan","📋 Thông tin CT","📄 Thuyết minh QT",
@@ -155,8 +154,8 @@ def _select_ct(key):
     for _,r in df_th.iterrows():
         ma=str(r.get('Mã CT','')).strip();ten=str(r.get('Tên công trình','')).strip()
         names.append(f"{ma} - {ten}")
-    sel=st.selectbox("Chọn công trình:",["-- Chọn --"]+names,key=key)
-    if sel=="-- Chọn --":return None,None,None,pd.DataFrame()
+    sel=st.selectbox("Chọn công trình:",names,key=key)
+    if not sel:return None,None,None,pd.DataFrame()
     ma=sel.split(" - ")[0].strip()
     ri=df_th[df_th['Mã CT']==ma].index
     if len(ri)==0:return None,None,None,pd.DataFrame()
@@ -261,11 +260,14 @@ elif page=="📋 Thông tin CT":
     row_th,mr,ten,cd=_select_ct("p2_sel")
     if row_th is not None:
         with st.container(border=True):
-            c1,c2,c3=st.columns(3)
+            c1,c2,c3=st.columns([1.2, 1, 1.8])
             with c1:
                 st.write(f"**Tên:** {row_th.get('Tên công trình','')}")
                 st.write(f"**Mã CT:** {row_th.get('Mã CT','')}")
                 st.write(f"**Trạng thái:** {row_th.get('Trạng thái','')}")
+                st.write("")
+                if pd.notna(row_th.get('Tiến độ')):
+                    st.markdown(f"**Tiến độ:**\n\n{row_th.get('Tiến độ','')}")
             with c2:
                 st.write(f"**Khái toán:** {fmt_full(row_th.get('Khái toán',0))} đ")
                 st.write(f"**Thực hiện:** {fmt_full(row_th.get('Thực hiện',0))} đ")
@@ -273,8 +275,6 @@ elif page=="📋 Thông tin CT":
             with c3:
                 if pd.notna(row_th.get('Nội dung SCL')):
                     st.markdown(f"**Nội dung SCL:**\n\n{row_th.get('Nội dung SCL','')}")
-                if pd.notna(row_th.get('Tiến độ')):
-                    st.markdown(f"**Tiến độ:**\n\n{row_th.get('Tiến độ','')}")
 
         # Bảng quyết toán kinh phí
         if mr is not None and len(cd)>1:
