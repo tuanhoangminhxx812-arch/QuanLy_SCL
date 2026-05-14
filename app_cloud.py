@@ -1,78 +1,15 @@
 import streamlit as st
 import pandas as pd
-import os
-import re
-import datetime
+import os, re, datetime
 from io import BytesIO
-from data_helpers import load_tonghop, load_pm092, get_trang_thai_list
+from data_helpers import load_tonghop, load_pm092, load_gia_tri_hop_dong
 from form_module import load_db_data
+from cloud_export import (get_project_section, get_cost_breakdown,
+    export_tmqt_word, export_phieu_tham_tra_word,
+    export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot)
 
-st.set_page_config(page_title="Quản lý SCL", layout="wide")
+st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
-# CSS
-st.markdown("""<style>
-.metric-card{background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:20px;text-align:center;border:1px solid #0f3460}
-.metric-val{font-size:28px;font-weight:700;color:#e94560}
-.metric-label{font-size:13px;color:#a0a0b0;margin-bottom:4px}
-.status-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block}
-.st-dtc{color:#22c55e}.st-lpakt{color:#f59e0b}.st-lkh{color:#3b82f6}.st-ht{color:#8b5cf6}
-</style>""", unsafe_allow_html=True)
-
-def fmt_money(v):
-    try:
-        v = int(float(v))
-        if v >= 1e9: return f"{v/1e9:,.2f} tỷ"
-        if v >= 1e6: return f"{v/1e6:,.1f} tr"
-        return f"{v:,}"
-    except: return "0"
-
-def fmt_full(v):
-    try: return f"{int(float(v)):,}"
-    except: return "0"
-
-def status_color(s):
-    s = str(s).strip()
-    colors = {'Đang thi công':'#22c55e','Lập PAKT-Tổng dự toán':'#f59e0b','Lập kế hoạch đấu thầu':'#3b82f6','Hoàn thành':'#8b5cf6'}
-    return colors.get(s, '#94a3b8')
-
-def parse_date_from_text(text, prefix):
-    import re
-    match = re.search(fr"{prefix}:\s*(\d{{1,2}})/(\d{{4}})", str(text), re.IGNORECASE)
-    if match:
-        return int(match.group(1)), int(match.group(2))
-    return None, None
-
-def analyze_project_health(row, current_year, current_month):
-    status = str(row.get('Trạng thái', '')).strip()
-    tien_do_text = str(row.get('Tiến độ', ''))
-    khai_toan = float(row.get('Khái toán', 0)) if pd.notna(row.get('Khái toán')) else 0
-    thuc_hien = float(row.get('Thực hiện', 0)) if pd.notna(row.get('Thực hiện')) else 0
-    
-    ty_le = (thuc_hien / khai_toan * 100) if khai_toan > 0 else 0
-    
-    if status in ['Hoàn thành', 'Nghiệm thu']:
-        return "Hoàn thành", "🟢", f"Dự án đã hoàn thành. Giải ngân: {ty_le:.1f}%"
-    
-    kc_m, kc_y = parse_date_from_text(tien_do_text, 'KC')
-    ht_m, ht_y = parse_date_from_text(tien_do_text, 'HT')
-    
-    if ht_m and ht_y:
-        months_left = (ht_y - current_year) * 12 + (ht_m - current_month)
-        if months_left < 0:
-            return "Quá hạn", "🔴", f"Trễ hạn hoàn thành {-months_left} tháng (Hạn HT: {ht_m}/{ht_y}). Giải ngân mới đạt {ty_le:.1f}%"
-        elif months_left <= 2 and ty_le < 30:
-            return "Nguy cơ cao", "🟡", f"Chỉ còn {months_left} tháng đến hạn ({ht_m}/{ht_y}) nhưng giải ngân rất thấp ({ty_le:.1f}%)."
-    
-    if kc_m and kc_y:
-        months_passed = (current_year - kc_y) * 12 + (current_month - kc_m)
-        if months_passed > 2 and status in ['Lập PAKT-Tổng dự toán', 'Lập kế hoạch đấu thầu', 'Chưa xác định']:
-            return "Trễ tiến độ", "🔴", f"Đã qua mốc khởi công ({kc_m}/{kc_y}) {months_passed} tháng nhưng vẫn ở trạng thái '{status}'."
-        if months_passed > 1 and ty_le == 0 and status == 'Đang thi công':
-            return "Cần lưu ý", "🟡", f"Khởi công từ {kc_m}/{kc_y} nhưng chưa có số liệu giải ngân (0%)."
-            
-    return "Đúng tiến độ", "🔵", f"Tiến độ bình thường. Giải ngân: {ty_le:.1f}%."
-
-# Load data
 try:
     import plotly.express as px
     import plotly.graph_objects as go
@@ -80,396 +17,436 @@ try:
 except ImportError:
     HAS_PLOTLY = False
 
-df_th = load_tonghop()
-pm_data = load_pm092()
+# ── CSS ──
+st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+html,body,[class*="st-"]{font-family:'Inter',sans-serif}
+.block-container{padding-top:1rem}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#1565C0 0%,#1976D2 40%,#2196F3 100%)}
+[data-testid="stSidebar"] .stMarkdown h1,
+[data-testid="stSidebar"] .stMarkdown h2,
+[data-testid="stSidebar"] .stMarkdown h3,
+[data-testid="stSidebar"] .stMarkdown h5,
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] .stMarkdown span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stRadio label{color:#ffffff!important}
+[data-testid="stSidebar"] .stRadio label:hover{background:rgba(255,255,255,.15)!important;border-radius:8px}
+.metric-card{background:linear-gradient(135deg,#1565C0,#1E88E5);border-radius:14px;
+padding:20px 16px;text-align:center;border:1px solid rgba(255,255,255,.2);
+box-shadow:0 4px 20px rgba(21,101,192,.3);transition:transform .2s}
+.metric-card:hover{transform:translateY(-3px)}
+.metric-val{font-size:26px;font-weight:700;color:#ffffff}
+.metric-label{font-size:12px;color:rgba(255,255,255,.8);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.page-title{font-size:28px;font-weight:700;color:#1565C0;margin-bottom:8px}
+.section-title{font-size:18px;font-weight:600;color:#1565C0;margin:16px 0 8px;
+border-left:3px solid #1976D2;padding-left:10px}
+.sidebar-logo{font-size:32px!important;font-weight:800!important;color:#ffffff!important;
+letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,.2)}
+.sidebar-sub{font-size:16px!important;color:rgba(255,255,255,.85)!important;font-weight:500!important}
+.word-preview{background:#ffffff;border:1px solid #e0e0e0;border-radius:10px;padding:24px 28px;
+max-height:500px;overflow-y:auto;font-family:'Times New Roman',serif;font-size:13px;
+line-height:1.6;color:#333;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.word-preview h4{text-align:center;font-weight:700;margin:8px 0}
+.word-preview p{margin:2px 0}
+div[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden}
+</style>""", unsafe_allow_html=True)
 
-# Merge PM_092 data
-if not df_th.empty and 'Mã CT' in df_th.columns:
-    df_th['Thực hiện PM'] = df_th['Mã CT'].map(lambda x: pm_data.get(str(x).strip(), 0))
-    if 'Thực hiện' not in df_th.columns:
-        df_th['Thực hiện'] = df_th['Thực hiện PM']
-    else:
-        df_th['Thực hiện'] = df_th.apply(lambda r: r['Thực hiện PM'] if r['Thực hiện PM'] > 0 else r['Thực hiện'], axis=1)
+# ── Helpers ──
+def create_download_link(data, filename, btn_label, mime):
+    import base64, uuid
+    b64 = base64.b64encode(data).decode()
+    uid = "dl_" + str(uuid.uuid4()).replace('-', '')
+    css = f"""
+    <style>
+    #{uid} {{
+        display: inline-flex; align-items: center; justify-content: center;
+        background-color: #ffffff; color: #31333F; border: 1px solid rgba(49,51,63,0.2);
+        border-radius: 0.5rem; padding: 0.5rem 1rem; font-size: 1rem; font-weight: 400;
+        text-decoration: none; transition: all 0.2s; cursor: pointer; margin-top: 10px;
+    }}
+    #{uid}:hover {{ border-color: #ff4b4b; color: #ff4b4b; }}
+    </style>
+    """
+    return f'{css}<a id="{uid}" href="data:{mime};base64,{b64}" download="{filename}">{btn_label}</a>'
 
-tab1, tab2 = st.tabs(["📊 Bảng số liệu chi tiết các dự án SCL", "📄 Bảng thuyết minh quyết toán"])
+def clean_filename(name):
+    if not name: return "CT"
+    s1 = u'ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúýĂăĐđĨĩŨũƠơƯưẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹ'
+    s0 = u'AAAAEEEIIOOOOUUYaaaaeeeiioooouuyAaDdIiUuOoUuAaAaAaAaAaAaAaAaAaAaAaAaEeEeEeEeEeEeEeEeIiIiOoOoOoOoOoOoOoOoOoOoOoOoUuUuUuUuUuUuUuYyYyYyYy'
+    s = ''
+    for c in str(name):
+        if c in s1: s += s0[s1.index(c)]
+        else: s += c
+    import re
+    return re.sub(r'[^a-zA-Z0-9_\-\. ]', '_', s)[:30].strip(' _')
 
-with tab1:
+def fmt_money(v):
+    try:
+        v=int(float(v))
+        if v>=1e9:return f"{v/1e9:,.2f} tỷ"
+        if v>=1e6:return f"{v/1e6:,.1f} tr"
+        return f"{v:,}"
+    except:return "0"
+
+def fmt_full(v):
+    try:return f"{int(float(v)):,}"
+    except:return "0"
+
+def status_color(s):
+    m={'Đang thi công':'#22c55e','Lập PAKT-Tổng dự toán':'#f59e0b',
+       'Lập kế hoạch đấu thầu':'#3b82f6','Hoàn thành':'#8b5cf6','Nghiệm thu':'#06b6d4'}
+    return m.get(str(s).strip(),'#94a3b8')
+
+def parse_date_from_text(text, prefix):
+    m=re.search(fr"{prefix}:\s*(\d{{1,2}})/(\d{{4}})",str(text),re.IGNORECASE)
+    return (int(m.group(1)),int(m.group(2))) if m else (None,None)
+
+def analyze_health(row,cy,cm):
+    status=str(row.get('Trạng thái','')).strip()
+    td=str(row.get('Tiến độ',''))
+    kt=float(row.get('Khái toán',0)) if pd.notna(row.get('Khái toán')) else 0
+    th=float(row.get('Thực hiện',0)) if pd.notna(row.get('Thực hiện')) else 0
+    r=(th/kt*100) if kt>0 else 0
+    if status in['Hoàn thành','Nghiệm thu']:return "Hoàn thành","🟢",f"Đã hoàn thành. Giải ngân {r:.1f}%"
+    kc_m,kc_y=parse_date_from_text(td,'KC');ht_m,ht_y=parse_date_from_text(td,'HT')
+    if ht_m and ht_y:
+        ml=(ht_y-cy)*12+(ht_m-cm)
+        if ml<0:return "Quá hạn","🔴",f"Trễ {-ml} tháng (HT: {ht_m}/{ht_y}). GN {r:.1f}%"
+        if ml<=2 and r<30:return "Nguy cơ","🟡",f"Còn {ml} tháng, GN thấp ({r:.1f}%)"
+    if kc_m and kc_y:
+        mp=(cy-kc_y)*12+(cm-kc_m)
+        if mp>2 and status in['Lập PAKT-Tổng dự toán','Lập kế hoạch đấu thầu']:
+            return "Trễ tiến độ","🔴",f"Qua KC {mp} tháng, vẫn '{status}'"
+    return "Bình thường","🔵",f"Tiến độ BT. GN {r:.1f}%"
+
+# ── Load data ──
+@st.cache_data(ttl=300)
+def load_all():
+    df=load_tonghop();pm=load_pm092();hd=load_gia_tri_hop_dong()
+    if not df.empty and 'Mã CT' in df.columns:
+        df['Thực hiện PM']=df['Mã CT'].map(lambda x:pm.get(str(x).strip(),0))
+        if 'Thực hiện' not in df.columns:df['Thực hiện']=df['Thực hiện PM']
+        else:df['Thực hiện']=df.apply(lambda r:r['Thực hiện PM'] if r['Thực hiện PM']>0 else r['Thực hiện'],axis=1)
+        df['Giá trị HĐ']=df['Mã CT'].map(lambda x:hd.get(str(x).strip(),0))
+    return df
+
+df_th=load_all()
+db_df=load_db_data()
+
+# ── Sidebar ──
+with st.sidebar:
+    st.markdown('<p class="sidebar-logo">⚡ QUẢN LÝ SCL</p>',unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-sub">Công ty Điện lực Vũng Tàu</p>',unsafe_allow_html=True)
+    st.markdown('<p style="color:rgba(255,255,255,.6);font-size:12px;margin-top:-8px">Hệ thống quản lý Quyết toán Sửa chữa lớn</p>',unsafe_allow_html=True)
+    st.divider()
+    page=st.radio("📂 Chuyên mục",
+        ["📊 Tổng quan","📋 Thông tin CT","📄 Thuyết minh QT",
+         "🔍 Phiếu thẩm tra","📜 BC & QĐ phê duyệt"],
+        label_visibility="collapsed")
+    st.divider()
+    st.caption(f"Cập nhật: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 
+
+# ── Chọn CT helper ──
+def _select_ct(key):
+    names=[]
+    for _,r in df_th.iterrows():
+        ma=str(r.get('Mã CT','')).strip();ten=str(r.get('Tên công trình','')).strip()
+        names.append(f"{ma} - {ten}")
+    sel=st.selectbox("Chọn công trình:",["-- Chọn --"]+names,key=key)
+    if sel=="-- Chọn --":return None,None,None,pd.DataFrame()
+    ma=sel.split(" - ")[0].strip()
+    ri=df_th[df_th['Mã CT']==ma].index
+    if len(ri)==0:return None,None,None,pd.DataFrame()
+    row_th=df_th.loc[ri[0]]
+    ten=str(row_th.get('Tên công trình',''))
+    mr,cd=get_project_section(db_df,ten,ma) if not db_df.empty else (None,pd.DataFrame())
+    return row_th,mr,ten,cd
+
+def shorten_name(name):
+    n = str(name).lower()
+    if 'đường dây trung' in n and 'hạ thế' in n: return 'Công trình SCL Đường dây trung-Hạ thế'
+    if 'tu' in n and 'ti' in n and 'bảo trì' in n: return 'Công trình SCL Bảo trì TU_TI'
+    if 'fco' in n or 'lbfco' in n: return 'Công trình SCL Thay thế FCO, LBFCO, LA'
+    if 'cummins' in n: return 'Công trình SCL Máy phát điện Cummins G1, G2'
+    if 'máy phát điện' in n and 'an hội' in n: return 'Công trình SCL Máy phát điện_Nhà máy An Hội'
+    if 'công xa' in n: return 'Công trình SCL Công Xa'
+    if 'live-line' in n or 'live line' in n: return 'Công trình SCL HTĐ bằng Live-line'
+    return name
+
+# ── PAGE 1: TỔNG QUAN ──
+if page=="📊 Tổng quan":
+    st.markdown('<p class="page-title">📊 Tổng quan các công trình SCL</p>',unsafe_allow_html=True)
     if df_th.empty:
-        st.warning("Chưa có dữ liệu. Vui lòng đặt file **Tổng hợp.xlsx** vào thư mục ứng dụng.")
+        st.warning("Chưa có dữ liệu Tổng hợp.xlsx")
     else:
-        # Metrics
-        total_ct = len(df_th)
-        total_kh = int(df_th['Khái toán'].fillna(0).sum()) if 'Khái toán' in df_th.columns else 0
-        total_th = int(df_th['Thực hiện'].fillna(0).sum()) if 'Thực hiện' in df_th.columns else 0
-        total_qt = int(df_th['Quyết toán'].fillna(0).sum()) if 'Quyết toán' in df_th.columns else 0
-        ty_le = (total_th/total_kh*100) if total_kh > 0 else 0
+        total_ct=len(df_th)
+        total_kh=int(df_th['Khái toán'].fillna(0).sum()) if 'Khái toán' in df_th.columns else 0
+        total_th=int(df_th['Thực hiện'].fillna(0).sum()) if 'Thực hiện' in df_th.columns else 0
+        ty_le=(total_th/total_kh*100) if total_kh>0 else 0
 
-        m1,m2,m3,m4 = st.columns(4)
-        m1.metric("Tổng Số Công Trình", f"{total_ct}")
-        m2.metric("Tổng Giá Trị Khái Toán", f"{fmt_full(total_kh)} đ")
-        m3.metric("Tổng Giá Trị Thực Hiện", f"{fmt_full(total_th)} đ")
-        m4.metric("Tỷ Lệ Giải Ngân", f"{ty_le:.2f} %")
+        c1,c2,c3,c4=st.columns(4)
+        for col,lbl,val in [(c1,"TỔNG SỐ CÔNG TRÌNH",str(total_ct)),
+            (c2,"TỔNG KHÁI TOÁN",fmt_money(total_kh)),
+            (c3,"TỔNG THỰC HIỆN",fmt_money(total_th)),
+            (c4,"TỶ LỆ GIẢI NGÂN",f"{ty_le:.1f}%")]:
+            col.markdown(f'<div class="metric-card"><div class="metric-label">{lbl}</div><div class="metric-val">{val}</div></div>',unsafe_allow_html=True)
 
-        # Risk Analysis
-        now = datetime.datetime.now()
-        current_y = now.year
-        current_m = now.month
-        
-        health_data = []
-        for idx, row in df_th.iterrows():
-            ma = row.get('Mã CT', '')
-            ten = row.get('Tên công trình', '')
-            h_status, h_icon, h_insight = analyze_project_health(row, current_y, current_m)
-            health_data.append({
-                'Mã CT': ma,
-                'Tên công trình': ten,
-                'Trạng thái Sức khỏe': f"{h_icon} {h_status}",
-                'Đánh giá & Khuyến nghị': h_insight,
-                'Status_Raw': h_status
-            })
-            
-        df_health = pd.DataFrame(health_data)
-        
-        st.markdown("#### 🚨 Đánh giá & Cảnh báo rủi ro (Executive Summary)")
+        # Health analysis
+        now=datetime.datetime.now();cy,cm=now.year,now.month
+        hd_list=[]
+        for _,r in df_th.iterrows():
+            hs,hi,hins=analyze_health(r,cy,cm)
+            hd_list.append({'Mã CT':r.get('Mã CT',''),'Tên công trình':r.get('Tên công trình',''),
+                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins,'_s':hs})
+        df_h=pd.DataFrame(hd_list)
+        if 'Tên công trình' in df_h.columns:
+            df_h['Tên công trình'] = df_h['Tên công trình'].apply(shorten_name)
+
+        st.markdown('<p class="section-title">🚨 Đánh giá & Cảnh báo rủi ro</p>',unsafe_allow_html=True)
         with st.container(border=True):
-            r1, r2, r3, r4 = st.columns(4)
-            r1.metric("🟢 Tốt / Hoàn thành", len(df_health[df_health['Status_Raw'] == 'Hoàn thành']))
-            r2.metric("🔵 Đúng tiến độ", len(df_health[df_health['Status_Raw'] == 'Đúng tiến độ']))
-            r3.metric("🟡 Nguy cơ cao / Lưu ý", len(df_health[df_health['Status_Raw'].isin(['Nguy cơ cao', 'Cần lưu ý'])]))
-            r4.metric("🔴 Quá hạn / Trễ", len(df_health[df_health['Status_Raw'].isin(['Quá hạn', 'Trễ tiến độ'])]))
-            
-            st.dataframe(df_health.drop(columns=['Status_Raw']), width='stretch', hide_index=True)
+            r1,r2,r3,r4=st.columns(4)
+            r1.metric("🟢 Hoàn thành",len(df_h[df_h['_s']=='Hoàn thành']))
+            r2.metric("🔵 Bình thường",len(df_h[df_h['_s']=='Bình thường']))
+            r3.metric("🟡 Nguy cơ",len(df_h[df_h['_s']=='Nguy cơ']))
+            r4.metric("🔴 Quá hạn/Trễ",len(df_h[df_h['_s'].isin(['Quá hạn','Trễ tiến độ'])]))
+            st.dataframe(df_h.drop(columns=['_s']),hide_index=True,width='stretch')
 
         # Charts
         if HAS_PLOTLY:
-            st.markdown("#### 📈 Sơ đồ trực quan hóa dữ liệu")
-            ch1, ch2 = st.columns(2)
-
+            st.markdown('<p class="section-title">📈 Biểu đồ trực quan</p>',unsafe_allow_html=True)
+            ch1,ch2=st.columns(2)
             with ch1:
                 if 'Trạng thái' in df_th.columns:
-                    status_counts = df_th['Trạng thái'].fillna('Chưa xác định').value_counts()
-                    colors_map = {s: status_color(s) for s in status_counts.index}
-                    fig1 = px.pie(values=status_counts.values, names=status_counts.index,
-                        title="1. Tỷ trọng trạng thái dự án",
-                        color=status_counts.index, color_discrete_map=colors_map, hole=0.4)
-                    fig1.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='white',size=12),
-                        legend=dict(orientation="v", yanchor="middle", y=0.5),
-                        height=400, margin=dict(t=40,b=20,l=20,r=20))
-                    fig1.update_traces(textposition='outside', textinfo='percent+label',
-                        textfont_size=11, marker=dict(line=dict(color='#1a1a2e',width=2)))
-                    st.plotly_chart(fig1, use_container_width=True, key='pie_chart')
-
+                    sc=df_th['Trạng thái'].fillna('Chưa XĐ').value_counts()
+                    cm2={s:status_color(s) for s in sc.index}
+                    fig1=px.pie(values=sc.values,names=sc.index,title="Tỷ trọng trạng thái",
+                        color=sc.index,color_discrete_map=cm2,hole=0.4)
+                    fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white',size=12),height=380,margin=dict(t=40,b=20,l=20,r=20))
+                    fig1.update_traces(textposition='outside',textinfo='percent+label',textfont_size=11)
+                    st.plotly_chart(fig1,width='stretch',key='pie1')
             with ch2:
                 if 'Khái toán' in df_th.columns:
-                    top_df = df_th.nlargest(5, 'Khái toán').copy()
-                    top_df['KT_ty'] = top_df['Khái toán'].fillna(0)/1e9
-                    top_df['TH_ty'] = top_df['Thực hiện'].fillna(0)/1e9 if 'Thực hiện' in top_df.columns else 0
-                    fig2 = go.Figure()
-                    fig2.add_trace(go.Bar(name='Khái toán (Tỷ đ)', x=top_df['Mã CT'], y=top_df['KT_ty'],
-                        marker_color='#3b82f6', text=[f"{v:.1f}" for v in top_df['KT_ty']], textposition='outside'))
-                    fig2.add_trace(go.Bar(name='Thực hiện (Tỷ đ)', x=top_df['Mã CT'], y=top_df['TH_ty'],
-                        marker_color='#f59e0b', text=[f"{v:.1f}" for v in top_df['TH_ty']], textposition='outside'))
-                    fig2.update_layout(
-                        title="2. Top dự án có mức ngân sách cao nhất", barmode='group',
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='white',size=12),
-                        xaxis=dict(gridcolor='rgba(255,255,255,0.1)'),
-                        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', title='Tỷ đồng'),
-                        height=400, margin=dict(t=40,b=20,l=20,r=20),
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                    st.plotly_chart(fig2, use_container_width=True, key='bar_chart')
+                    top=df_th.nlargest(5,'Khái toán').copy()
+                    top['KT']=top['Khái toán'].fillna(0)/1e9
+                    top['TH']=top['Thực hiện'].fillna(0)/1e9 if 'Thực hiện' in top.columns else 0
+                    fig2=go.Figure()
+                    fig2.add_trace(go.Bar(name='Khái toán (Tỷ)',x=top['Mã CT'],y=top['KT'],marker_color='#6366f1'))
+                    fig2.add_trace(go.Bar(name='Thực hiện (Tỷ)',x=top['Mã CT'],y=top['TH'],marker_color='#f59e0b'))
+                    fig2.update_layout(title="Top 5 ngân sách",barmode='group',
+                        paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white',size=12),height=380,margin=dict(t=40,b=20,l=20,r=20))
+                    st.plotly_chart(fig2,width='stretch',key='bar1')
 
         # Table
-        st.markdown("#### 📋 Bảng số liệu chi tiết các dự án SCL")
-        display_cols = ['Mã CT','Tên công trình','Trạng thái','Khái toán','Thực hiện','Quyết toán']
-        display_cols = [c for c in display_cols if c in df_th.columns]
-        disp_df = df_th[display_cols].copy()
-        for c in ['Khái toán','Thực hiện','Quyết toán']:
-            if c in disp_df.columns:
-                disp_df[c] = disp_df[c].fillna(0).astype(int)
-        
-        col_cfg = {}
-        for c in ['Khái toán','Thực hiện','Quyết toán']:
-            if c in disp_df.columns:
-                col_cfg[c] = st.column_config.NumberColumn(format="%,d")
-        
-        st.dataframe(disp_df, width='stretch', hide_index=True, column_config=col_cfg)
+        st.markdown('<p class="section-title">📋 Bảng số liệu chi tiết</p>',unsafe_allow_html=True)
+        dcols=['Mã CT','Tên công trình','Trạng thái','Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']
+        dcols=[c for c in dcols if c in df_th.columns]
+        dd=df_th[dcols].copy()
+        if 'Tên công trình' in dd.columns:
+            dd['Tên công trình'] = dd['Tên công trình'].apply(shorten_name)
+        for c in ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']:
+            if c in dd.columns:dd[c]=dd[c].fillna(0).astype(int)
+        ccfg={c:st.column_config.NumberColumn(format="%,d") for c in ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán'] if c in dd.columns}
+        st.dataframe(dd,hide_index=True,width='stretch',column_config=ccfg)
 
-        # Chi tiết từng công trình (chỉ xem)
+
+
+# ── PAGE 2: THÔNG TIN CT ──
+elif page=="📋 Thông tin CT":
+    st.markdown('<p class="page-title">📋 Thông tin chi tiết công trình</p>',unsafe_allow_html=True)
+    row_th,mr,ten,cd=_select_ct("p2_sel")
+    if row_th is not None:
+        with st.container(border=True):
+            c1,c2,c3=st.columns(3)
+            with c1:
+                st.write(f"**Tên:** {row_th.get('Tên công trình','')}")
+                st.write(f"**Mã CT:** {row_th.get('Mã CT','')}")
+                st.write(f"**Trạng thái:** {row_th.get('Trạng thái','')}")
+            with c2:
+                st.write(f"**Khái toán:** {fmt_full(row_th.get('Khái toán',0))} đ")
+                st.write(f"**Thực hiện:** {fmt_full(row_th.get('Thực hiện',0))} đ")
+                st.write(f"**Quyết toán:** {fmt_full(row_th.get('Quyết toán',0))} đ")
+            with c3:
+                if pd.notna(row_th.get('Nội dung SCL')):
+                    st.markdown(f"**Nội dung SCL:**\n\n{row_th.get('Nội dung SCL','')}")
+                if pd.notna(row_th.get('Tiến độ')):
+                    st.markdown(f"**Tiến độ:**\n\n{row_th.get('Tiến độ','')}")
+
+        # Bảng quyết toán kinh phí
+        if mr is not None and len(cd)>1:
+            st.markdown('<p class="section-title">Bảng tổng hợp quyết toán kinh phí SCL</p>',unsafe_allow_html=True)
+            sub=cd.iloc[1:][['STT','Tên Công trình','Giá trị Dự toán','Giá trị Q.định phê duyệt QT công trình']].copy()
+            sub=sub.rename(columns={'Tên Công trình':'Tên Hạng mục','Giá trị Q.định phê duyệt QT công trình':'Giá trị QT'})
+            for c in ['Giá trị Dự toán','Giá trị QT']:
+                sub[c]=pd.to_numeric(sub[c],errors='coerce').fillna(0).astype(int)
+            sub['Chênh lệch']=sub['Giá trị Dự toán']-sub['Giá trị QT']
+            st.dataframe(sub,hide_index=True,width='stretch',
+                column_config={c:st.column_config.NumberColumn(format="%,d") for c in ['Giá trị Dự toán','Giá trị QT','Chênh lệch']})
+
+            # Xuất Excel
+            buf=BytesIO()
+            sub.to_excel(buf,index=False,sheet_name='Quyet_toan')
+            safe=clean_filename(ten)
+            st.markdown(create_download_link(buf.getvalue(), f"Quyet_toan_{safe}.xlsx", "📥 Xuất Excel - Bảng quyết toán", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), unsafe_allow_html=True)
+
+# ── PAGE 3: TMQT ──
+elif page=="📄 Thuyết minh QT":
+    st.markdown('<p class="page-title">📄 Bảng thuyết minh quyết toán</p>',unsafe_allow_html=True)
+    row_th,mr,ten,cd=_select_ct("p3_sel")
+    if mr is not None:
+        bd=get_cost_breakdown(cd)
+        gt_dt=bd.get('SCL',{}).get('dt',0);gt_qt=bd.get('SCL',{}).get('qt',0)
+        kh=_safe_int(mr.get('Kế hoạch',0))
+        dv=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else ''
+        gc=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else ''
+        nkc=mr.get('Ngày khởi công');nht=mr.get('Ngày hoàn thành')
+        def _fd(d):
+            if pd.isna(d) or d is None:return '......'
+            if isinstance(d,pd.Timestamp):d=d.date()
+            if isinstance(d,(datetime.date,datetime.datetime)):return d.strftime('%d/%m/%Y')
+            return str(d)
+
+        st.markdown('<p class="section-title">Xem trước nội dung Thuyết minh QT</p>',unsafe_allow_html=True)
+        can_cu=str(mr.get('Căn cứ pháp lý','')) if pd.notna(mr.get('Căn cứ pháp lý')) else ''
+        klcv=str(mr.get('Khối lượng công việc','')) if pd.notna(mr.get('Khối lượng công việc')) else ''
+        noi_dung=str(row_th.get('Nội dung SCL','')) if row_th is not None and pd.notna(row_th.get('Nội dung SCL')) else ''
+        if not klcv and noi_dung: klcv=noi_dung
+        chenh=gt_qt-gt_dt
+        chenh_txt=f'tăng {_fmt_money_dot(abs(chenh))}' if chenh>0 else (f'giảm {_fmt_money_dot(abs(chenh))}' if chenh<0 else 'bằng dự toán')
+        preview_html=f'''
+        <div class="word-preview">
+        <h4>BẢNG THUYẾT MINH QUYẾT TOÁN</h4>
+        <h4>CÔNG TRÌNH SỬA CHỮA LỚN HOÀN THÀNH</h4>
+        <hr>
+        <p>- Tên danh mục: <b>{ten}</b></p>
+        <p>- Mã công trình: <b>{mr.get('Mã CT','')}</b></p>
+        <p>- Giá trị vốn kế hoạch: <b>{_fmt_money_dot(kh)}</b> đồng</p>
+        <p>- Thuộc kế hoạch vốn sửa chữa lớn năm {datetime.datetime.now().year}</p>
+        <p>- Hình thức tự làm hay thuê ngoài: <b>{gc}</b></p>
+        <p>- Tên đơn vị thi công: <b>{dv}</b></p>
+        <p>- Giá trị dự toán được duyệt: <b>{_fmt_money_dot(gt_dt)}</b> đồng</p>
+        <p>- Thời gian khởi công: <b>{_fd(nkc)}</b></p>
+        <p>- Thời gian hoàn thành: <b>{_fd(nht)}</b></p>
+        <p>- Giá trị quyết toán danh mục hoàn thành: <b>{_fmt_money_dot(gt_qt)}</b> đồng</p>
+        <p>- Khối lượng công việc: {klcv.replace(chr(10),'<br>')}</p>
+        <p>- Căn cứ pháp lý: {can_cu.replace(chr(10),'<br>')}</p>
+        <p>- Phân tích tăng giảm: <b>{chenh_txt}</b> đồng so với dự toán</p>
+        </div>
+        '''
+        st.markdown(preview_html,unsafe_allow_html=True)
+        st.write('')
+        data=export_tmqt_word(mr,cd,noi_dung)
+        if data:
+            safe=clean_filename(ten)
+            st.markdown(create_download_link(data, f"TMQT_{safe}.docx", "📥 Xuất Word - Thuyết minh QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
+
+
+# ── PAGE 4: PHIẾU THẨM TRA ──
+elif page=="🔍 Phiếu thẩm tra":
+    st.markdown('<p class="page-title">🔍 Phiếu thẩm tra quyết toán</p>',unsafe_allow_html=True)
+    row_th,mr,ten,cd=_select_ct("p4_sel")
+    if mr is not None:
+        gc=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else ''
+        dv=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else ''
+        so_hd=str(mr.get('Số Hợp đồng xây lắp','')) if pd.notna(mr.get('Số Hợp đồng xây lắp')) else ''
+        is_tu='tự' in gc.lower() if gc else False
+
+        st.markdown('<p class="section-title">Xem trước Phiếu thẩm tra</p>',unsafe_allow_html=True)
+        ngay_hd=mr.get('Ngày Hợp đồng xây lắp')
+        ngay_hd_str='......'
+        if pd.notna(ngay_hd):
+            if isinstance(ngay_hd,pd.Timestamp):ngay_hd=ngay_hd.date()
+            if isinstance(ngay_hd,(datetime.date,datetime.datetime)):ngay_hd_str=ngay_hd.strftime('%d/%m/%Y')
+        tu_check='✓' if is_tu else '☐'
+        thue_check='☐' if is_tu else '✓'
+        preview_html=f'''
+        <div class="word-preview">
+        <h4>PHIẾU THẨM TRA QUYẾT TOÁN</h4>
+        <h4>CÔNG TRÌNH SỬA CHỮA LỚN</h4>
+        <hr>
+        <p>Tên công trình SCL: <b>{ten}</b></p>
+        <p>Mã công trình: <b>{mr.get('Mã CT','')}</b></p>
+        <p>Đơn vị quản lý: <b>{dv}</b></p>
+        <p>Phương thức: {tu_check} Tự làm &nbsp;&nbsp; {thue_check} Thuê ngoài (HĐ số {so_hd} ngày {ngay_hd_str})</p>
+        <p>Đơn vị thực hiện: <b>{dv}</b></p>
+        <br>
+        <p><i>📝 Phần Kết quả kiểm tra — để trống, người dùng tự ghi khi in.</i></p>
+        </div>
+        '''
+        st.markdown(preview_html,unsafe_allow_html=True)
+        st.write('')
+        data=export_phieu_tham_tra_word(mr)
+        if data:
+            safe=clean_filename(ten)
+            st.markdown(create_download_link(data, f"Phieu_tham_tra_{safe}.docx", "📥 Xuất Word - Phiếu thẩm tra QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
+
+# ── PAGE 5: BÁO CÁO & QĐ ──
+elif page=="📜 BC & QĐ phê duyệt":
+    st.markdown('<p class="page-title">📜 Báo cáo thẩm tra & Quyết định phê duyệt</p>',unsafe_allow_html=True)
+    row_th,mr,ten,cd=_select_ct("p5_sel")
+    if mr is not None:
+        bd=get_cost_breakdown(cd)
+        a_qt=bd.get('A',{}).get('qt',0);b_qt=bd.get('B',{}).get('qt',0)
+        c_qt=bd.get('C',{}).get('qt',0);scl_qt=bd.get('SCL',{}).get('qt',0)
+
+        # 5a - Báo cáo thẩm tra
+        st.markdown('<p class="section-title">5a. Báo cáo thẩm tra quyết toán</p>',unsafe_allow_html=True)
+        dv5=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else ''
+        gc5=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else ''
+        so_hd5=str(mr.get('Số Hợp đồng xây lắp','')) if pd.notna(mr.get('Số Hợp đồng xây lắp')) else ''
+        is_tu5='tự' in gc5.lower() if gc5 else False
+        a_dt=bd.get('A',{}).get('dt',0);b_dt=bd.get('B',{}).get('dt',0);c_dt=bd.get('C',{}).get('dt',0)
+        preview5a=f'''
+        <div class="word-preview">
+        <h4>BÁO CÁO THẨM TRA QUYẾT TOÁN</h4>
+        <h4>CÔNG TRÌNH SỬA CHỮA LỚN</h4>
+        <hr>
+        <p>Tên công trình SCL: <b>{ten}</b></p>
+        <p>Đơn vị quản lý: <b>{dv5}</b></p>
+        <p>Phương thức: <b>{"Tự làm" if is_tu5 else "Thuê ngoài"}</b></p>
+        <p>Hợp đồng số: <b>{so_hd5}</b></p>
+        <table style="width:100%;border-collapse:collapse;margin:10px 0">
+        <tr style="background:#e3f2fd"><th style="border:1px solid #ccc;padding:6px">Hạng mục</th><th style="border:1px solid #ccc;padding:6px">Dự toán</th><th style="border:1px solid #ccc;padding:6px">Quyết toán</th></tr>
+        <tr><td style="border:1px solid #ccc;padding:6px">Xây dựng (B)</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(b_dt)}</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(b_qt)}</td></tr>
+        <tr><td style="border:1px solid #ccc;padding:6px">Thiết bị (A)</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(a_dt)}</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(a_qt)}</td></tr>
+        <tr><td style="border:1px solid #ccc;padding:6px">KTCB khác (C)</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(c_dt)}</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(c_qt)}</td></tr>
+        <tr style="font-weight:700"><td style="border:1px solid #ccc;padding:6px">TỔNG</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(a_dt+b_dt+c_dt)}</td><td style="border:1px solid #ccc;padding:6px;text-align:right">{_fmt_money_dot(scl_qt)}</td></tr>
+        </table>
+        </div>
+        '''
+        st.markdown(preview5a,unsafe_allow_html=True)
+        st.write('')
+        data_bc=export_bao_cao_tham_tra_word(mr,cd)
+        if data_bc:
+            safe=clean_filename(ten)
+            st.markdown(create_download_link(data_bc, f"BC_tham_tra_{safe}.docx", "📥 Xuất Word - Báo cáo thẩm tra", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
+
         st.divider()
-        st.markdown("#### 🔍 Xem chi tiết công trình")
-        ct_names = []
-        for _, r in df_th.iterrows():
-            ma = str(r.get('Mã CT','')).strip()
-            ten = str(r.get('Tên công trình','')).strip()
-            ct_names.append(f"{ma} - {ten}")
-        
-        selected = st.selectbox("Chọn công trình:", ["-- Chọn để xem chi tiết --"] + ct_names)
-        
-        if selected != "-- Chọn để xem chi tiết --":
-            sel_ma = selected.split(" - ")[0].strip()
-            row_idx = df_th[df_th['Mã CT']==sel_ma].index
-            if len(row_idx) > 0:
-                row_data = df_th.loc[row_idx[0]]
-                with st.container(border=True):
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        st.write(f"**Tên công trình:** {row_data.get('Tên công trình','')}")
-                        st.write(f"**Mã CT:** {sel_ma}")
-                        st.write(f"**Trạng thái:** {row_data.get('Trạng thái','')}")
-                    with c2:
-                        st.write(f"**Khái toán:** {fmt_full(row_data.get('Khái toán',0))} đ")
-                        st.write(f"**Thực hiện:** {fmt_full(row_data.get('Thực hiện',0))} đ")
-                        st.write(f"**Quyết toán:** {fmt_full(row_data.get('Quyết toán',0))} đ")
-                    with c3:
-                        if pd.notna(row_data.get('Nội dung SCL')):
-                            st.markdown(f"**Nội dung SCL:**\n\n{row_data.get('Nội dung SCL','')}")
-                        if pd.notna(row_data.get('Tiến độ')):
-                            st.markdown(f"**Tiến độ:**\n\n{row_data.get('Tiến độ','')}")
 
-                # Hiển thị bảng quyết toán từ database nếu có
-                db_df = load_db_data()
-                if not db_df.empty:
-                    ten_ct = str(row_data.get('Tên công trình', ''))
-                    start_indices = db_df.index[db_df['Tên Công trình'] == ten_ct].tolist()
-                    if not start_indices:
-                        start_indices = db_df.index[db_df['Mã CT'].astype(str).str.strip() == sel_ma].tolist()
-                    if start_indices:
-                        start_idx = start_indices[0]
-                        end_idx = len(db_df)
-                        for i in range(start_idx + 1, len(db_df)):
-                            val = str(db_df.at[i, 'STT']).strip().upper()
-                            if val in ['I','II','III','IV','V','VI','VII','VIII','IX','X']:
-                                end_idx = i
-                                break
-                        ct_data = db_df.iloc[start_idx:end_idx]
-                        if len(ct_data) > 1:
-                            st.markdown("**Bảng tổng hợp quyết toán:**")
-                            sub_data = ct_data.iloc[1:][['STT','Tên Công trình','Giá trị Dự toán','Giá trị Q.định phê duyệt QT công trình']].copy()
-                            sub_data = sub_data.rename(columns={'Tên Công trình':'Tên Hạng mục','Giá trị Q.định phê duyệt QT công trình':'Giá trị quyết toán'})
-                            for c in ['Giá trị Dự toán','Giá trị quyết toán']:
-                                sub_data[c] = pd.to_numeric(sub_data[c], errors='coerce').fillna(0).astype(int)
-                            sub_data['Chênh lệch'] = sub_data['Giá trị Dự toán'] - sub_data['Giá trị quyết toán']
-                            st.dataframe(sub_data, hide_index=True, width='stretch',
-                                column_config={
-                                    'Giá trị Dự toán': st.column_config.NumberColumn(format="%,d"),
-                                    'Giá trị quyết toán': st.column_config.NumberColumn(format="%,d"),
-                                    'Chênh lệch': st.column_config.NumberColumn(format="%,d"),
-                                })
-
-        # Download
-        st.divider()
-        _, col_btn, _ = st.columns([4, 2, 4])
-        with col_btn:
-            if st.button("📊 Xuất báo cáo", type="primary", key="cloud_export", use_container_width=True):
-                try:
-                    from hangmuc_report import generate_hangmuc
-                    result = generate_hangmuc()
-                    if result is not None:
-                        st.success(f"✅ Đã xuất HangMuc.xlsx thành công! ({len(result)} công trình)")
-                        hangmuc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HangMuc.xlsx')
-                        if os.path.exists(hangmuc_path):
-                            with open(hangmuc_path, "rb") as f:
-                                file_data = f.read()
-                            st.download_button(
-                                "📥 Tải HangMuc.xlsx", data=file_data,
-                                file_name="HangMuc.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key="cloud_dl_hm"
-                            )
-                        else:
-                            st.error("Lỗi: Không tìm thấy file HangMuc.xlsx vừa được xuất.")
-                    else:
-                        st.warning("Chưa có dữ liệu để xuất.")
-                except Exception as e:
-                    st.error(f"Lỗi xuất báo cáo: {e}")
-
-with tab2:
-    st.header("📄 Bảng thuyết minh quyết toán")
-    db_df_tab3 = load_db_data()
-    
-    if db_df_tab3.empty:
-        st.info("Chưa có dữ liệu. Vui lòng cập nhật số liệu trước.")
-    else:
-        main_mask_tab3 = db_df_tab3['Kế hoạch'].notna()
-        list_ct_tab3 = db_df_tab3.loc[main_mask_tab3, 'Tên Công trình'].dropna().unique().tolist()
-        
-        selected_ct_tab3 = st.selectbox("Chọn Công trình để xuất Thuyết minh QT:", ["-- Chọn --"] + list_ct_tab3, key="tmqt_select")
-        
-        if selected_ct_tab3 != "-- Chọn --":
-            start_indices_t3 = db_df_tab3.index[db_df_tab3['Tên Công trình'] == selected_ct_tab3].tolist()
-            if start_indices_t3:
-                start_idx_t3 = start_indices_t3[0]
-                end_idx_t3 = len(db_df_tab3)
-                for i in range(start_idx_t3 + 1, len(db_df_tab3)):
-                    val = str(db_df_tab3.at[i, 'STT']).strip().upper()
-                    if val in ['I','II','III','IV','V','VI','VII','VIII','IX','X']:
-                        end_idx_t3 = i
-                        break
-                
-                ct_data_t3 = db_df_tab3.iloc[start_idx_t3:end_idx_t3]
-                main_row_t3 = ct_data_t3.iloc[0]
-                
-                ten_ct_t3 = str(main_row_t3.get('Tên Công trình', ''))
-                ma_ct_t3 = str(main_row_t3.get('Mã CT', '')) if pd.notna(main_row_t3.get('Mã CT')) else ''
-                ke_hoach_t3 = main_row_t3.get('Kế hoạch', 0)
-                if pd.isna(ke_hoach_t3): ke_hoach_t3 = 0
-                ke_hoach_t3 = int(float(ke_hoach_t3))
-                
-                don_vi_ql_t3 = str(main_row_t3.get('Đơn vị QL', '')) if pd.notna(main_row_t3.get('Đơn vị QL')) else ''
-                can_cu_pl_t3 = str(main_row_t3.get('Căn cứ pháp lý', '')) if pd.notna(main_row_t3.get('Căn cứ pháp lý')) else ''
-                klcv_t3 = str(main_row_t3.get('Khối lượng công việc', '')) if pd.notna(main_row_t3.get('Khối lượng công việc')) else ''
-                
-                ngay_kc_t3 = main_row_t3.get('Ngày khởi công')
-                ngay_ht_t3 = main_row_t3.get('Ngày hoàn thành')
-                
-                def format_date_vn(d):
-                    if pd.isna(d) or d is None: return '....../....../...........'
-                    if isinstance(d, pd.Timestamp): d = d.date()
-                    if isinstance(d, (datetime.date, datetime.datetime)): return d.strftime('%d/%m/%Y')
-                    return str(d)
-                
-                ngay_kc_str = format_date_vn(ngay_kc_t3)
-                ngay_ht_str = format_date_vn(ngay_ht_t3)
-                
-                gt_dt_scl = 0
-                gt_qt_scl = 0
-                for idx_t3, row_t3 in ct_data_t3.iterrows():
-                    stt_val = str(row_t3['STT']).strip().upper()
-                    if stt_val == 'SCL':
-                        dt_val = row_t3.get('Giá trị Dự toán', 0)
-                        qt_val = row_t3.get('Giá trị Q.định phê duyệt QT công trình', 0)
-                        if pd.notna(dt_val): gt_dt_scl = int(float(dt_val))
-                        if pd.notna(qt_val): gt_qt_scl = int(float(qt_val))
-                        break
-                
-                st.subheader("Xem trước thông tin")
-                with st.container(border=True):
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.write(f"**Tên công trình:** {ten_ct_t3}")
-                        st.write(f"**Mã CT:** {ma_ct_t3}")
-                        st.write(f"**Giá trị kế hoạch vốn:** {f'{ke_hoach_t3:,}'} đồng")
-                        st.write(f"**Giá trị dự toán được duyệt:** {f'{gt_dt_scl:,}'} đồng")
-                    with c2:
-                        st.write(f"**Thời gian khởi công:** {ngay_kc_str}")
-                        st.write(f"**Thời gian hoàn thành:** {ngay_ht_str}")
-                        st.write(f"**Giá trị quyết toán:** {f'{gt_qt_scl:,}'} đồng")
-                        st.write(f"**Đơn vị QL:** {don_vi_ql_t3}")
-                
-                if can_cu_pl_t3:
-                    st.write("**Căn cứ pháp lý:**")
-                    st.info(can_cu_pl_t3)
-                if klcv_t3:
-                    st.write("**Khối lượng công việc:**")
-                    st.info(klcv_t3)
-                
-                st.divider()
-                
-                if st.button("📥 Xuất file Word - Bảng thuyết minh quyết toán", type="primary", key="btn_tmqt"):
-                    try:
-                        from docx import Document as DocxDocument
-                        from docx.shared import Pt, Cm
-                        from docx.enum.text import WD_ALIGN_PARAGRAPH
-                        
-                        doc = DocxDocument('Mẫu TMQT.docx')
-                        ghi_chu_t3 = str(main_row_t3.get('Ghi chú', '')) if pd.notna(main_row_t3.get('Ghi chú')) else ''
-                        now = datetime.datetime.now()
-                        
-                        def format_money(val):
-                            if val == 0: return '0'
-                            return f'{val:,}'.replace(',', '.')
-                        
-                        def replace_para_with_lines(p, lines):
-                            if not lines:
-                                p.text = ""
-                                return
-                            style = p.style
-                            left_indent = p.paragraph_format.left_indent
-                            first_line_indent = p.paragraph_format.first_line_indent
-                            for line in lines[:-1]:
-                                new_p = p.insert_paragraph_before(line, style=style)
-                                new_p.paragraph_format.left_indent = left_indent
-                                new_p.paragraph_format.first_line_indent = first_line_indent
-                                new_p.paragraph_format.space_after = Pt(0)
-                                new_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                            p.text = lines[-1]
-                            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-
-                        paragraphs = list(doc.paragraphs)
-                        for p in paragraphs:
-                            p.paragraph_format.space_after = Pt(0)
-                            text_val = p.text.strip()
-                            if not text_val: continue
-                            
-                            if "- Tên danh mục:" in text_val:
-                                lines = [f"- Tên danh mục: {ten_ct_t3}", f"- Mã công trình: {ma_ct_t3}"]
-                                replace_para_with_lines(p, lines)
-                            elif "- Giá trị vốn kế hoạch:" in text_val:
-                                p.text = f"- Giá trị vốn kế hoạch: {format_money(ke_hoach_t3)} đồng"
-                            elif "sửa chữa lớn năm" in text_val:
-                                p.text = f"- Thuộc kế hoạch vốn sửa chữa lớn năm {now.year}"
-                            elif "Hình thức tự làm hay thuê ngoài" in text_val:
-                                p.text = f"- Hình thức tự làm hay thuê ngoài: {ghi_chu_t3}"
-                            elif "- Tên đơn vị thi công" in text_val:
-                                p.text = f"- Tên đơn vị thi công: {don_vi_ql_t3}"
-                            elif "- Giá trị dự toán được duyệt" in text_val:
-                                p.text = f"- Giá trị dự toán được duyệt: {format_money(gt_dt_scl)} đồng"
-                            elif "- Thời gian khởi công" in text_val:
-                                p.text = f"- Thời gian khởi công: {ngay_kc_str}"
-                            elif "- Thời gian hoàn thành" in text_val:
-                                p.text = f"- Thời gian hoàn thành: {ngay_ht_str}"
-                            elif "- Giá trị quyết toán" in text_val and "hoàn thành" in text_val:
-                                p.text = f"- Giá trị quyết toán danh mục hoàn thành: {format_money(gt_qt_scl)} đồng"
-                            elif "Khối lượng công việc chủ yếu đã tiến hành" in text_val:
-                                lines = [f"- Khối lượng công việc chủ yếu đã tiến hành (thay thế, sửa chữa những bộ phận nào của TSCĐ):"]
-                                if klcv_t3:
-                                    lines.extend([line for line in klcv_t3.split('\n') if line.strip()])
-                                replace_para_with_lines(p, lines)
-                            elif "Các căn cứ về chế độ để lập quyết toán" in text_val:
-                                lines = [f"- Các căn cứ về chế độ để lập quyết toán:"]
-                                if can_cu_pl_t3:
-                                    lines.extend([line for line in can_cu_pl_t3.split('\n') if line.strip()])
-                                replace_para_with_lines(p, lines)
-                            elif "+ .........." in text_val:
-                                p.text = ""
-                            elif "ngày       tháng      năm" in text_val:
-                                p.text = text_val.replace("2026", str(now.year))
-                        
-                        for section in doc.sections:
-                            section.top_margin = Cm(2)
-                            section.bottom_margin = Cm(2)
-                            section.left_margin = Cm(3)
-                            section.right_margin = Cm(2)
-                        for p in doc.paragraphs:
-                            for run in p.runs:
-                                run.font.name = 'Times New Roman'
-                                run.font.size = Pt(12)
-                        for t in doc.tables:
-                            for row in t.rows:
-                                for cell in row.cells:
-                                    for p in cell.paragraphs:
-                                        p.paragraph_format.space_after = Pt(0)
-                                        for run in p.runs:
-                                            run.font.name = 'Times New Roman'
-                                            run.font.size = Pt(12)
-                        
-                        output_docx = BytesIO()
-                        doc.save(output_docx)
-                        docx_data = output_docx.getvalue()
-                        
-                        safe_name = ten_ct_t3[:30].replace('/', '_').replace('\\', '_').replace(':', '_')
-                        st.download_button(
-                            label="📥 Tải xuống file Word",
-                            data=docx_data,
-                            file_name=f"Thuyet_minh_QT_{safe_name}.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            key="download_tmqt_final"
-                        )
-                        st.success("✅ Đã tạo file Word thành công!")
-                    except Exception as e:
-                        st.error(f"Lỗi khi tạo file Word: {e}")
+        # 5b - Quyết định phê duyệt
+        st.markdown('<p class="section-title">5b. Quyết định phê duyệt quyết toán</p>',unsafe_allow_html=True)
+        from form_module import doc_so_vn
+        bang_chu=doc_so_vn(scl_qt) if scl_qt>0 else ''
+        preview5b=f'''
+        <div class="word-preview">
+        <h4>QUYẾT ĐỊNH</h4>
+        <h4>Phê duyệt quyết toán công trình SCL hoàn thành</h4>
+        <hr>
+        <p><b>Điều 1:</b> Phê duyệt quyết toán công trình: <b>{ten}</b></p>
+        <p>Tổng giá trị: <b>{_fmt_money_dot(scl_qt)}</b> đồng ({bang_chu})</p>
+        <p>&nbsp;&nbsp;- Chi phí thiết bị: {_fmt_money_dot(a_qt)} đồng</p>
+        <p>&nbsp;&nbsp;- Chi phí xây dựng: {_fmt_money_dot(b_qt)} đồng</p>
+        <p>&nbsp;&nbsp;- KTCB khác: {_fmt_money_dot(c_qt)} đồng</p>
+        <p><b>Điều 2:</b> Nguồn vốn: Sửa chữa lớn</p>
+        </div>
+        '''
+        st.markdown(preview5b,unsafe_allow_html=True)
+        st.write('')
+        data_qd=export_qd_phe_duyet_word(mr,cd)
+        if data_qd:
+            safe=clean_filename(ten)
+            st.markdown(create_download_link(data_qd, f"QD_phe_duyet_{safe}.docx", "📥 Xuất Word - QĐ phê duyệt QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
