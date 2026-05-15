@@ -336,62 +336,7 @@ elif page=="📄 Thuyết minh QT":
             for line in cancu_lines:
                 cancu_html+=f'<p style="margin-left:20px;">{line}</p>\n'
 
-        preview_html=f'''
-<div class="a4-preview">
-    <table style="width:100%;border:none;margin-bottom:5pt;">
-        <tr>
-            <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;">
-                <span style="font-size:11pt;">TỔNG CÔNG TY</span><br>
-                <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br>
-                <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
-                <span style="font-size:11pt;">Số: </span>
-            </td>
-            <td style="width:60%;text-align:center;border:none;vertical-align:top;">
-                <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
-                <b><i>Độc lập - Tự do - Hạnh phúc</i></b><br><br>
-                <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i>
-            </td>
-        </tr>
-    </table>
-
-    <div class="center-title" style="margin-top:15pt;">
-        BẢN THUYẾT MINH QUYẾT TOÁN
-    </div>
-
-    <p>- Tên danh mục: {ten}</p>
-    <p>- Mã công trình: {mr.get('Mã CT','')}</p>
-    <p>- Giá trị vốn kế hoạch: {_fmt_money_dot(kh)} đồng</p>
-    <p>- Thuộc kế hoạch vốn sửa chữa lớn năm {now.year}</p>
-    <p>- Hình thức tự làm hay thuê ngoài: {gc}</p>
-    <p>- Tên đơn vị thi công: {dv}</p>
-    <p>- Giá trị dự toán được duyệt: {_fmt_money_dot(gt_dt)} đồng</p>
-    <p>- Thời gian khởi công: {_fd(nkc)}</p>
-    <p>- Thời gian hoàn thành: {_fd(nht)}</p>
-    <p>- Giá trị quyết toán danh mục hoàn thành: {_fmt_money_dot(gt_qt)} đồng</p>
-    <p>- Khối lượng công việc chủ yếu đã tiến hành (thay thế, sửa chữa những bộ phận nào của TSCĐ):</p>
-    {klcv_html}
-    <p>- Các căn cứ về chế độ để lập quyết toán:</p>
-    {cancu_html}
-    <p style="margin-left:5px;">|- Phân tích: {chenh_txt}</p>
-    <p>- Đánh giá hiệu quả của công việc sửa chữa lớn (hiệu quả của việc thay thế các thiết bị so với sửa chữa các thiết bị đã hư hỏng và hiệu quả khôi phục tính năng của tài sản cố định nói chung sau khi sửa chữa.</p>
-    <p>- Các kiến nghị (nếu có).</p>
-
-    <br>
-    <table style="width:100%;border:none;margin-top:20pt;">
-        <tr>
-            <td style="width:50%;border:none;">&nbsp;</td>
-            <td style="width:50%;text-align:center;border:none;">
-                <b>GIÁM ĐỐC</b>
-            </td>
-        </tr>
-    </table>
-
-    <br><br><br>
-    <p style="font-size:11pt;"><b><i>Nơi nhận:</i></b></p>
-    <p style="font-size:10pt;margin-left:10px;">- Như trên;</p>
-    <p style="font-size:10pt;margin-left:10px;">- Lưu ....</p>
-</div>
-'''
+        preview_html=f''' <div class="a4-preview"> <table style="width:100%;border:none;margin-bottom:5pt;"> <tr> <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;"> <span style="font-size:11pt;">TỔNG CÔNG TY</span><br> <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br> <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br> <span style="font-size:11pt;">Số: </span> </td> <td style="width:60%;text-align:center;border:none;vertical-align:top;"> <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br> <b><i>Độc lập - Tự do - Hạnh phúc</i></b><br><br> <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i> </td> </tr> </table> <div class="center-title" style="margin-top:15pt;"> BẢN THUYẾT MINH QUYẾT TOÁN </div> <p>- Tên danh mục: {ten}</p> <p>- Mã công trình: {mr.get('Mã CT','')}</p> <p>- Giá trị vốn kế hoạch: {_fmt_money_dot(kh)} đồng</p> <p>- Thuộc kế hoạch vốn sửa chữa lớn năm {now.year}</p> <p>- Hình thức tự làm hay thuê ngoài: {gc}</p> <p>- Tên đơn vị thi công: {dv}</p> <p>- Giá trị dự toán được duyệt: {_fmt_money_dot(gt_dt)} đồng</p> <p>- Thời gian khởi công: {_fd(nkc)}</p> <p>- Thời gian hoàn thành: {_fd(nht)}</p> <p>- Giá trị quyết toán danh mục hoàn thành: {_fmt_money_dot(gt_qt)} đồng</p> <p>- Khối lượng công việc chủ yếu đã tiến hành (thay thế, sửa chữa những bộ phận nào của TSCĐ):</p> {klcv_html} <p>- Các căn cứ về chế độ để lập quyết toán:</p> {cancu_html} <p style="margin-left:5px;">|- Phân tích: {chenh_txt}</p> <p>- Đánh giá hiệu quả của công việc sửa chữa lớn (hiệu quả của việc thay thế các thiết bị so với sửa chữa các thiết bị đã hư hỏng và hiệu quả khôi phục tính năng của tài sản cố định nói chung sau khi sửa chữa.</p> <p>- Các kiến nghị (nếu có).</p> <br> <table style="width:100%;border:none;margin-top:20pt;"> <tr> <td style="width:50%;border:none;">&nbsp;</td> <td style="width:50%;text-align:center;border:none;"> <b>GIÁM ĐỐC</b> </td> </tr> </table> <br><br><br> <p style="font-size:11pt;"><b><i>Nơi nhận:</i></b></p> <p style="font-size:10pt;margin-left:10px;">- Như trên;</p> <p style="font-size:10pt;margin-left:10px;">- Lưu ....</p> </div> '''
         data=export_tmqt_word(mr,cd,noi_dung)
         if data:
             safe=clean_filename(ten)
@@ -426,91 +371,7 @@ elif page=="🔍 Phiếu thẩm tra":
         a_qt=bd.get('A',{}).get('qt',0);b_qt=bd.get('B',{}).get('qt',0);c_qt=bd.get('C',{}).get('qt',0)
         scl_dt=bd.get('SCL',{}).get('dt',0);scl_qt=bd.get('SCL',{}).get('qt',0)
 
-        preview_html=f'''
-<div class="a4-preview">
-    <table style="width:100%;border:none;margin-bottom:5pt;">
-        <tr>
-            <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;">
-                <span style="font-size:11pt;">TỔNG CÔNG TY</span><br>
-                <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br>
-                <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b>
-            </td>
-            <td style="width:60%;text-align:center;border:none;vertical-align:top;">
-                <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
-                <b><i>Độc lập - Tự do - Hạnh phúc</i></b>
-            </td>
-        </tr>
-    </table>
-
-    <div class="center-title" style="margin-top:15pt;">
-        PHIẾU THẨM TRA QUYẾT TOÁN<br>
-        CÔNG TRÌNH SỬA CHỮA LỚN
-    </div>
-
-    <p>Tên công trình SCL: <b>{ten}</b></p>
-    <p>Mã công trình: <b>{mr.get('Mã CT','')}</b></p>
-    <p>Đơn vị quản lý: <b>{dv}</b></p>
-    <p>Phương thức chọn thầu thực hiện:</p>
-    <p style="margin-left:30px;">{tu_check} Tự làm</p>
-    <p style="margin-left:30px;">{thue_check} Thuê ngoài (HĐ số {so_hd} ngày {ngay_hd_str})</p>
-    <p>Đơn vị thực hiện: <b>{dv}</b></p>
-
-    <p style="margin-top:15pt;"><b>Kết quả kiểm tra:</b></p>
-    <table style="width:100%;border-collapse:collapse;margin:10pt 0;">
-        <tr style="font-weight:bold;text-align:center;background:#f0f0f0;">
-            <td style="border:1px solid #000;padding:6pt;width:8%;">TT</td>
-            <td style="border:1px solid #000;padding:6pt;">Nội dung</td>
-            <td style="border:1px solid #000;padding:6pt;width:18%;">Dự toán</td>
-            <td style="border:1px solid #000;padding:6pt;width:18%;">Quyết toán</td>
-            <td style="border:1px solid #000;padding:6pt;width:18%;">Thẩm tra</td>
-            <td style="border:1px solid #000;padding:6pt;width:18%;">Chênh lệch</td>
-        </tr>
-        <tr>
-            <td style="border:1px solid #000;padding:6pt;text-align:center;">1</td>
-            <td style="border:1px solid #000;padding:6pt;">Chi phí xây dựng (B)</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-        <tr>
-            <td style="border:1px solid #000;padding:6pt;text-align:center;">2</td>
-            <td style="border:1px solid #000;padding:6pt;">Chi phí thiết bị (A)</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-        <tr>
-            <td style="border:1px solid #000;padding:6pt;text-align:center;">3</td>
-            <td style="border:1px solid #000;padding:6pt;">KTCB khác (C)</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-        <tr style="font-weight:bold;">
-            <td style="border:1px solid #000;padding:6pt;" colspan="2">TỔNG CỘNG</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-    </table>
-
-    <p style="margin-top:15pt;">Ý kiến thẩm tra:</p>
-    <p>..........................................................................................................</p>
-
-    <br>
-    <table style="width:100%;border:none;margin-top:15pt;">
-        <tr>
-            <td style="width:33%;text-align:center;border:none;"><b>NGƯỜI THẨM TRA</b></td>
-            <td style="width:33%;text-align:center;border:none;"><b>TỔ TRƯỞNG THẨM TRA</b></td>
-            <td style="width:33%;text-align:center;border:none;"><b>TRƯỞNG PHÒNG</b></td>
-        </tr>
-    </table>
-</div>
-'''
+        preview_html=f''' <div class="a4-preview"> <table style="width:100%;border:none;margin-bottom:5pt;"> <tr> <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;"> <span style="font-size:11pt;">TỔNG CÔNG TY</span><br> <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br> <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b> </td> <td style="width:60%;text-align:center;border:none;vertical-align:top;"> <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br> <b><i>Độc lập - Tự do - Hạnh phúc</i></b> </td> </tr> </table> <div class="center-title" style="margin-top:15pt;"> PHIẾU THẨM TRA QUYẾT TOÁN<br> CÔNG TRÌNH SỬA CHỮA LỚN </div> <p>Tên công trình SCL: <b>{ten}</b></p> <p>Mã công trình: <b>{mr.get('Mã CT','')}</b></p> <p>Đơn vị quản lý: <b>{dv}</b></p> <p>Phương thức chọn thầu thực hiện:</p> <p style="margin-left:30px;">{tu_check} Tự làm</p> <p style="margin-left:30px;">{thue_check} Thuê ngoài (HĐ số {so_hd} ngày {ngay_hd_str})</p> <p>Đơn vị thực hiện: <b>{dv}</b></p> <p style="margin-top:15pt;"><b>Kết quả kiểm tra:</b></p> <table style="width:100%;border-collapse:collapse;margin:10pt 0;"> <tr style="font-weight:bold;text-align:center;background:#f0f0f0;"> <td style="border:1px solid #000;padding:6pt;width:8%;">TT</td> <td style="border:1px solid #000;padding:6pt;">Nội dung</td> <td style="border:1px solid #000;padding:6pt;width:18%;">Dự toán</td> <td style="border:1px solid #000;padding:6pt;width:18%;">Quyết toán</td> <td style="border:1px solid #000;padding:6pt;width:18%;">Thẩm tra</td> <td style="border:1px solid #000;padding:6pt;width:18%;">Chênh lệch</td> </tr> <tr> <td style="border:1px solid #000;padding:6pt;text-align:center;">1</td> <td style="border:1px solid #000;padding:6pt;">Chi phí xây dựng (B)</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> <tr> <td style="border:1px solid #000;padding:6pt;text-align:center;">2</td> <td style="border:1px solid #000;padding:6pt;">Chi phí thiết bị (A)</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> <tr> <td style="border:1px solid #000;padding:6pt;text-align:center;">3</td> <td style="border:1px solid #000;padding:6pt;">KTCB khác (C)</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> <tr style="font-weight:bold;"> <td style="border:1px solid #000;padding:6pt;" colspan="2">TỔNG CỘNG</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> </table> <p style="margin-top:15pt;">Ý kiến thẩm tra:</p> <p>..........................................................................................................</p> <br> <table style="width:100%;border:none;margin-top:15pt;"> <tr> <td style="width:33%;text-align:center;border:none;"><b>NGƯỜI THẨM TRA</b></td> <td style="width:33%;text-align:center;border:none;"><b>TỔ TRƯỞNG THẨM TRA</b></td> <td style="width:33%;text-align:center;border:none;"><b>TRƯỞNG PHÒNG</b></td> </tr> </table> </div> '''
         data=export_phieu_tham_tra_word(mr)
         if data:
             safe=clean_filename(ten)
@@ -537,101 +398,7 @@ elif page=="📜 BC & QĐ phê duyệt":
         a_dt=bd.get('A',{}).get('dt',0);b_dt=bd.get('B',{}).get('dt',0);c_dt=bd.get('C',{}).get('dt',0)
         scl_dt=bd.get('SCL',{}).get('dt',0)
 
-        preview5a=f'''
-<div class="a4-preview">
-    <table style="width:100%;border:none;margin-bottom:5pt;">
-        <tr>
-            <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;">
-                <span style="font-size:11pt;">TỔNG CÔNG TY</span><br>
-                <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br>
-                <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
-                <span style="font-size:11pt;">Số: </span>
-            </td>
-            <td style="width:60%;text-align:center;border:none;vertical-align:top;">
-                <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
-                <b><i>Độc lập - Tự do - Hạnh phúc</i></b><br><br>
-                <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i>
-            </td>
-        </tr>
-    </table>
-
-    <div class="center-title" style="margin-top:15pt;">
-        BÁO CÁO<br>
-        Kết quả thẩm tra quyết toán công trình SCL hoàn thành
-    </div>
-
-    <p><b>Kính gửi: Giám đốc Công ty Điện lực Vũng Tàu</b></p>
-    <p>Tên công trình SCL: <b>{ten}</b></p>
-    <p>Đơn vị quản lý: <b>{dv5}</b></p>
-    <p>Phương thức chọn thầu thực hiện: <b>{"Tự làm" if is_tu5 else "Thuê ngoài"}</b></p>
-    <p>Hợp đồng số: <b>{so_hd5}</b></p>
-    <p>Đơn vị thực hiện: <b>{dv5}</b></p>
-
-    <p style="margin-top:10pt;"><b>Kết quả kiểm tra:</b></p>
-    <table style="width:100%;border-collapse:collapse;margin:10pt 0;">
-        <tr style="font-weight:bold;text-align:center;background:#f0f0f0;">
-            <td style="border:1px solid #000;padding:6pt;width:8%;">TT</td>
-            <td style="border:1px solid #000;padding:6pt;">Nội dung</td>
-            <td style="border:1px solid #000;padding:6pt;width:16%;">Dự toán</td>
-            <td style="border:1px solid #000;padding:6pt;width:16%;">Quyết toán</td>
-            <td style="border:1px solid #000;padding:6pt;width:16%;">Thẩm tra</td>
-            <td style="border:1px solid #000;padding:6pt;width:16%;">Chênh lệch</td>
-        </tr>
-        <tr>
-            <td style="border:1px solid #000;padding:6pt;text-align:center;">1</td>
-            <td style="border:1px solid #000;padding:6pt;">Phần xây dựng (B)</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-        <tr>
-            <td style="border:1px solid #000;padding:6pt;text-align:center;">2</td>
-            <td style="border:1px solid #000;padding:6pt;">Phần thiết bị (A)</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-        <tr>
-            <td style="border:1px solid #000;padding:6pt;text-align:center;">3</td>
-            <td style="border:1px solid #000;padding:6pt;">KTCB khác (C)</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-        <tr style="font-weight:bold;">
-            <td style="border:1px solid #000;padding:6pt;" colspan="2">TỔNG CỘNG</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_dt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_qt)}</td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-            <td style="border:1px solid #000;padding:6pt;text-align:right;"></td>
-        </tr>
-    </table>
-
-    <p>Sau khi xem xét thẩm tra hồ sơ, tổ thẩm tra quyết toán chấp thuận tổng giá trị quyết toán công trình nêu trên: <b>{_fmt_money_dot(scl_qt)}</b> đồng</p>
-    <p>Trong đó:</p>
-    <p style="margin-left:20px;">- Xây dựng: {_fmt_money_dot(b_qt)} đồng</p>
-    <p style="margin-left:20px;">- Thiết bị: {_fmt_money_dot(a_qt)} đồng</p>
-    <p style="margin-left:20px;">- KTCB khác: {_fmt_money_dot(c_qt)} đồng</p>
-    <p>Kính trình Giám đốc Công ty xem xét và quyết định phê duyệt./.</p>
-
-    <br>
-    <table style="width:100%;border:none;margin-top:15pt;">
-        <tr>
-            <td style="width:33%;text-align:center;border:none;"><b>NGƯỜI THẨM TRA</b></td>
-            <td style="width:33%;text-align:center;border:none;"><b>TỔ TRƯỞNG THẨM TRA</b></td>
-            <td style="width:33%;text-align:center;border:none;"><b>TRƯỞNG PHÒNG</b></td>
-        </tr>
-    </table>
-
-    <br><br>
-    <p style="font-size:11pt;"><b><i>Nơi nhận:</i></b></p>
-    <p style="font-size:10pt;margin-left:10px;">- Như trên;</p>
-    <p style="font-size:10pt;margin-left:10px;">- Lưu ....</p>
-</div>
-'''
+        preview5a=f''' <div class="a4-preview"> <table style="width:100%;border:none;margin-bottom:5pt;"> <tr> <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;"> <span style="font-size:11pt;">TỔNG CÔNG TY</span><br> <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br> <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br> <span style="font-size:11pt;">Số: </span> </td> <td style="width:60%;text-align:center;border:none;vertical-align:top;"> <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br> <b><i>Độc lập - Tự do - Hạnh phúc</i></b><br><br> <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i> </td> </tr> </table> <div class="center-title" style="margin-top:15pt;"> BÁO CÁO<br> Kết quả thẩm tra quyết toán công trình SCL hoàn thành </div> <p><b>Kính gửi: Giám đốc Công ty Điện lực Vũng Tàu</b></p> <p>Tên công trình SCL: <b>{ten}</b></p> <p>Đơn vị quản lý: <b>{dv5}</b></p> <p>Phương thức chọn thầu thực hiện: <b>{"Tự làm" if is_tu5 else "Thuê ngoài"}</b></p> <p>Hợp đồng số: <b>{so_hd5}</b></p> <p>Đơn vị thực hiện: <b>{dv5}</b></p> <p style="margin-top:10pt;"><b>Kết quả kiểm tra:</b></p> <table style="width:100%;border-collapse:collapse;margin:10pt 0;"> <tr style="font-weight:bold;text-align:center;background:#f0f0f0;"> <td style="border:1px solid #000;padding:6pt;width:8%;">TT</td> <td style="border:1px solid #000;padding:6pt;">Nội dung</td> <td style="border:1px solid #000;padding:6pt;width:16%;">Dự toán</td> <td style="border:1px solid #000;padding:6pt;width:16%;">Quyết toán</td> <td style="border:1px solid #000;padding:6pt;width:16%;">Thẩm tra</td> <td style="border:1px solid #000;padding:6pt;width:16%;">Chênh lệch</td> </tr> <tr> <td style="border:1px solid #000;padding:6pt;text-align:center;">1</td> <td style="border:1px solid #000;padding:6pt;">Phần xây dựng (B)</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(b_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> <tr> <td style="border:1px solid #000;padding:6pt;text-align:center;">2</td> <td style="border:1px solid #000;padding:6pt;">Phần thiết bị (A)</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(a_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> <tr> <td style="border:1px solid #000;padding:6pt;text-align:center;">3</td> <td style="border:1px solid #000;padding:6pt;">KTCB khác (C)</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(c_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> <tr style="font-weight:bold;"> <td style="border:1px solid #000;padding:6pt;" colspan="2">TỔNG CỘNG</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_dt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;">{_fmt_money_dot(scl_qt)}</td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> <td style="border:1px solid #000;padding:6pt;text-align:right;"></td> </tr> </table> <p>Sau khi xem xét thẩm tra hồ sơ, tổ thẩm tra quyết toán chấp thuận tổng giá trị quyết toán công trình nêu trên: <b>{_fmt_money_dot(scl_qt)}</b> đồng</p> <p>Trong đó:</p> <p style="margin-left:20px;">- Xây dựng: {_fmt_money_dot(b_qt)} đồng</p> <p style="margin-left:20px;">- Thiết bị: {_fmt_money_dot(a_qt)} đồng</p> <p style="margin-left:20px;">- KTCB khác: {_fmt_money_dot(c_qt)} đồng</p> <p>Kính trình Giám đốc Công ty xem xét và quyết định phê duyệt./.</p> <br> <table style="width:100%;border:none;margin-top:15pt;"> <tr> <td style="width:33%;text-align:center;border:none;"><b>NGƯỜI THẨM TRA</b></td> <td style="width:33%;text-align:center;border:none;"><b>TỔ TRƯỞNG THẨM TRA</b></td> <td style="width:33%;text-align:center;border:none;"><b>TRƯỞNG PHÒNG</b></td> </tr> </table> <br><br> <p style="font-size:11pt;"><b><i>Nơi nhận:</i></b></p> <p style="font-size:10pt;margin-left:10px;">- Như trên;</p> <p style="font-size:10pt;margin-left:10px;">- Lưu ....</p> </div> '''
         data_bc=export_bao_cao_tham_tra_word(mr,cd)
         if data_bc:
             safe=clean_filename(ten)
@@ -653,58 +420,7 @@ elif page=="📜 BC & QĐ phê duyệt":
             for line in [l.strip() for l in can_cu5.split('\n') if l.strip()]:
                 cancu5_html+=f'<p style="margin-left:20px;">{line}</p>\n'
 
-        preview5b=f'''
-<div class="a4-preview">
-    <table style="width:100%;border:none;margin-bottom:5pt;">
-        <tr>
-            <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;">
-                <span style="font-size:11pt;">TỔNG CÔNG TY</span><br>
-                <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br>
-                <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
-                <span style="font-size:11pt;">Số: &nbsp;&nbsp;&nbsp;/QĐ-ĐLVT</span>
-            </td>
-            <td style="width:60%;text-align:center;border:none;vertical-align:top;">
-                <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
-                <b><i>Độc lập - Tự do - Hạnh phúc</i></b><br><br>
-                <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i>
-            </td>
-        </tr>
-    </table>
-
-    <div class="center-title" style="margin-top:15pt;">
-        QUYẾT ĐỊNH<br>
-        V/v Phê duyệt quyết toán công trình sửa chữa lớn
-    </div>
-
-    <p style="text-align:center;font-weight:bold;margin-bottom:15pt;">GIÁM ĐỐC CÔNG TY ĐIỆN LỰC VŨNG TÀU</p>
-
-    {cancu5_html if cancu5_html else '<p style="margin-left:20px;">Căn cứ ...</p>'}
-
-    <p><b>Điều 1:</b> Phê duyệt quyết toán công trình: <b>{ten}</b></p>
-    <p>với tổng giá trị: <b>{_fmt_money_dot(scl_qt)}</b> đồng</p>
-    <p>(Bằng chữ: <i>{bang_chu}</i>)</p>
-    <p style="margin-left:20px;">- Chi phí thiết bị: {_fmt_money_dot(a_qt)} đồng</p>
-    <p style="margin-left:20px;">- Chi phí xây dựng: {_fmt_money_dot(b_qt)} đồng</p>
-    <p style="margin-left:20px;">- KTCB khác: {_fmt_money_dot(c_qt)} đồng</p>
-    <p><b>Điều 2:</b> Nguồn vốn thực hiện công trình: Sửa chữa lớn của Điện lực Vũng Tàu.</p>
-    <p><b>Điều 3:</b> Phòng TC-KT, phòng KT-ĐT, các bộ phận liên quan chịu trách nhiệm thi hành Quyết định này./.</p>
-
-    <br>
-    <table style="width:100%;border:none;margin-top:15pt;">
-        <tr>
-            <td style="width:50%;border:none;">&nbsp;</td>
-            <td style="width:50%;text-align:center;border:none;">
-                <b>GIÁM ĐỐC</b>
-            </td>
-        </tr>
-    </table>
-
-    <br><br><br>
-    <p style="font-size:11pt;"><b><i>Nơi nhận:</i></b></p>
-    <p style="font-size:10pt;margin-left:10px;">- Như Điều 3;</p>
-    <p style="font-size:10pt;margin-left:10px;">- Lưu VT, TC-KT.</p>
-</div>
-'''
+        preview5b=f''' <div class="a4-preview"> <table style="width:100%;border:none;margin-bottom:5pt;"> <tr> <td style="width:40%;text-align:center;border:none;vertical-align:top;font-size:12pt;"> <span style="font-size:11pt;">TỔNG CÔNG TY</span><br> <span style="font-size:11pt;">ĐIỆN LỰC TP HỒ CHÍ MINH</span><br> <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br> <span style="font-size:11pt;">Số: &nbsp;&nbsp;&nbsp;/QĐ-ĐLVT</span> </td> <td style="width:60%;text-align:center;border:none;vertical-align:top;"> <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br> <b><i>Độc lập - Tự do - Hạnh phúc</i></b><br><br> <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i> </td> </tr> </table> <div class="center-title" style="margin-top:15pt;"> QUYẾT ĐỊNH<br> V/v Phê duyệt quyết toán công trình sửa chữa lớn </div> <p style="text-align:center;font-weight:bold;margin-bottom:15pt;">GIÁM ĐỐC CÔNG TY ĐIỆN LỰC VŨNG TÀU</p> {cancu5_html if cancu5_html else '<p style="margin-left:20px;">Căn cứ ...</p>'} <p><b>Điều 1:</b> Phê duyệt quyết toán công trình: <b>{ten}</b></p> <p>với tổng giá trị: <b>{_fmt_money_dot(scl_qt)}</b> đồng</p> <p>(Bằng chữ: <i>{bang_chu}</i>)</p> <p style="margin-left:20px;">- Chi phí thiết bị: {_fmt_money_dot(a_qt)} đồng</p> <p style="margin-left:20px;">- Chi phí xây dựng: {_fmt_money_dot(b_qt)} đồng</p> <p style="margin-left:20px;">- KTCB khác: {_fmt_money_dot(c_qt)} đồng</p> <p><b>Điều 2:</b> Nguồn vốn thực hiện công trình: Sửa chữa lớn của Điện lực Vũng Tàu.</p> <p><b>Điều 3:</b> Phòng TC-KT, phòng KT-ĐT, các bộ phận liên quan chịu trách nhiệm thi hành Quyết định này./.</p> <br> <table style="width:100%;border:none;margin-top:15pt;"> <tr> <td style="width:50%;border:none;">&nbsp;</td> <td style="width:50%;text-align:center;border:none;"> <b>GIÁM ĐỐC</b> </td> </tr> </table> <br><br><br> <p style="font-size:11pt;"><b><i>Nơi nhận:</i></b></p> <p style="font-size:10pt;margin-left:10px;">- Như Điều 3;</p> <p style="font-size:10pt;margin-left:10px;">- Lưu VT, TC-KT.</p> </div> '''
         data_qd=export_qd_phe_duyet_word(mr,cd)
         if data_qd:
             safe=clean_filename(ten)
