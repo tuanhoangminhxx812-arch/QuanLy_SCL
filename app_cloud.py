@@ -61,6 +61,25 @@ html,body,.stApp{font-family:'Inter',sans-serif}
 [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
     display: none;
 }
+.main-title {
+    text-align: center;
+    color: #1565C0;
+    margin-top: -40px;
+    margin-bottom: 25px;
+    font-size: 32px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+div[data-testid="stVerticalBlock"] > div.element-container:has(.sticky-anchor) + div.element-container {
+    position: sticky !important;
+    top: 2.875rem !important;
+    z-index: 999 !important;
+    background-color: white;
+    padding: 10px 0;
+    margin-top: -10px;
+    border-bottom: 1px solid #f1f5f9;
+}
 .metric-card{background:linear-gradient(135deg,#1565C0,#1E88E5);border-radius:14px;
 padding:20px 16px;text-align:center;border:1px solid rgba(255,255,255,.2);
 box-shadow:0 4px 20px rgba(21,101,192,.3);transition:transform .2s}
@@ -147,20 +166,17 @@ def analyze_health(row,cy,cm):
     th=float(row.get('Thực hiện',0)) if pd.notna(row.get('Thực hiện')) else 0
     r=(th/kt*100) if kt>0 else 0
     
-    def highlight(text, pct):
-        return f"{text} <span style='color:#e11d48; font-weight:bold;'>({pct:.1f}%)</span>"
-        
-    if status in['Hoàn thành','Nghiệm thu']:return "Hoàn thành","🟢",highlight("Đã hoàn thành. Giải ngân", r)
+    if status in['Hoàn thành','Nghiệm thu']:return "Hoàn thành","🟢","Đã hoàn thành", r
     kc_m,kc_y=parse_date_from_text(td,'KC');ht_m,ht_y=parse_date_from_text(td,'HT')
     if ht_m and ht_y:
         ml=(ht_y-cy)*12+(ht_m-cm)
-        if ml<0:return "Quá hạn","🔴",highlight(f"Trễ {-ml} tháng (HT: {ht_m}/{ht_y}). GN", r)
-        if ml<=2 and r<30:return "Nguy cơ","🟡",highlight(f"Còn {ml} tháng, GN thấp", r)
+        if ml<0:return "Quá hạn","🔴",f"Trễ {-ml} tháng (HT: {ht_m}/{ht_y})", r
+        if ml<=2 and r<30:return "Nguy cơ","🟡",f"Còn {ml} tháng, GN thấp", r
     if kc_m and kc_y:
         mp=(cy-kc_y)*12+(cm-kc_m)
         if mp>2 and status in['Lập PAKT-Tổng dự toán','Lập kế hoạch đấu thầu']:
-            return "Trễ tiến độ","🔴",f"Qua KC {mp} tháng, vẫn '{status}'"
-    return "Bình thường","🔵",highlight("Tiến độ BT. GN", r)
+            return "Trễ tiến độ","🔴",f"Qua KC {mp} tháng, vẫn '{status}'", r
+    return "Bình thường","🔵","Tiến độ BT", r
 
 # ── Load data ──
 @st.cache_data(ttl=300)
@@ -179,7 +195,6 @@ db_df=load_db_data()
 # ── Sidebar ──
 with st.sidebar:
     st.markdown('<p class="sidebar-logo" style="font-size: 28px !important; line-height: 1.3; margin-bottom: 5px;">Công ty Điện lực Vũng Tàu</p>',unsafe_allow_html=True)
-    st.markdown('<p style="color:#ffffff; font-size: 18px; font-weight: 500; margin-top: 0px; margin-bottom: 15px; line-height: 1.4;">Hệ thống quản lý Quyết toán Sửa chữa lớn</p>',unsafe_allow_html=True)
     st.divider()
     page=st.radio("📂 Chuyên mục",
         ["📊 Tổng quan","📋 Bảng tổng hợp QT","📄 Thuyết minh QT",
@@ -192,6 +207,7 @@ with st.sidebar:
 
 # ── Chọn CT helper ──
 def _select_ct(key):
+    st.markdown('<div class="sticky-anchor"></div>', unsafe_allow_html=True)
     names=[]
     for _,r in df_th.iterrows():
         ma=str(r.get('Mã CT','')).strip();ten=str(r.get('Tên công trình','')).strip()
@@ -218,8 +234,9 @@ def shorten_name(name):
     return name
 
 # ── PAGE 1: TỔNG QUAN ──
+st.markdown('<h1 class="main-title">Hệ thống quản lý Quyết toán Sửa chữa lớn</h1>', unsafe_allow_html=True)
+
 if page=="📊 Tổng quan":
-    st.markdown('<p class="page-title">📊 Tổng quan các công trình SCL</p>',unsafe_allow_html=True)
     if df_th.empty:
         st.warning("Chưa có dữ liệu Tổng hợp.xlsx")
     else:
@@ -228,6 +245,7 @@ if page=="📊 Tổng quan":
         total_th=int(df_th['Thực hiện'].fillna(0).sum()) if 'Thực hiện' in df_th.columns else 0
         ty_le=(total_th/total_kh*100) if total_kh>0 else 0
 
+        st.markdown('<div class="sticky-anchor"></div>', unsafe_allow_html=True)
         c1,c2,c3,c4=st.columns(4)
         for col,lbl,val in [(c1,"TỔNG SỐ CÔNG TRÌNH",str(total_ct)),
             (c2,"TỔNG KHÁI TOÁN",fmt_money(total_kh)),
@@ -239,9 +257,9 @@ if page=="📊 Tổng quan":
         now=datetime.datetime.now();cy,cm=now.year,now.month
         hd_list=[]
         for _,r in df_th.iterrows():
-            hs,hi,hins=analyze_health(r,cy,cm)
+            hs,hi,hins,gn_rate=analyze_health(r,cy,cm)
             hd_list.append({'Mã CT':r.get('Mã CT',''),'Tên công trình':r.get('Tên công trình',''),
-                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins,'_s':hs})
+                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins, 'Tỷ lệ GN': gn_rate, '_s':hs})
         df_h=pd.DataFrame(hd_list)
         if 'Tên công trình' in df_h.columns:
             df_h['Tên công trình'] = df_h['Tên công trình'].apply(shorten_name)
@@ -254,23 +272,12 @@ if page=="📊 Tổng quan":
             r3.metric("🟡 Nguy cơ",len(df_h[df_h['_s']=='Nguy cơ']))
             r4.metric("🔴 Quá hạn/Trễ",len(df_h[df_h['_s'].isin(['Quá hạn','Trễ tiến độ'])]))
             
-            # Render as styled HTML to support rich text inline formatting
-            html_df = df_h.drop(columns=['_s']).copy()
-            html_table = html_df.to_html(escape=False, index=False)
-            
-            st.markdown(f"""
-            <style>
-            .health-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-family: 'Inter', sans-serif; font-size: 14px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
-            .health-table th {{ background-color: #f8fafc; color: #475569; font-weight: 600; padding: 12px 16px; text-align: left; border-bottom: 2px solid #e2e8f0; }}
-            .health-table td {{ padding: 12px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; }}
-            .health-table tr:hover {{ background-color: #f8fafc; }}
-            </style>
-            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-                <table class="health-table">
-                    {html_table.replace('<table border="1" class="dataframe">', '').replace('</table>', '')}
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
+            st.dataframe(df_h.drop(columns=['_s']),hide_index=True,width='stretch',
+                         column_config={
+                             'Tỷ lệ GN': st.column_config.ProgressColumn(
+                                 format="%.1f%%", min_value=0, max_value=100
+                             )
+                         })
 
         # Charts
         if HAS_PLOTLY:
