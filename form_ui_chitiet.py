@@ -28,9 +28,12 @@ def _safe_date(v):
     if isinstance(v, (datetime.date, datetime.datetime)): return v
     return None
 
-def _safe_int(v):
+def _safe_num(v):
+    """Giữ nguyên giá trị số (kể cả thập phân)."""
     if pd.isna(v) or v is None or v == '': return 0
-    try: return int(float(v))
+    try:
+        f = float(v)
+        return int(f) if f == int(f) else f
     except: return 0
 
 def _upload_files_to_cat(ten_ct, cat_key, cat_name, wid_key):
@@ -86,7 +89,7 @@ def render_pakt_dt(ma_ct, ten_ct, wid_key):
             row = df.iloc[0]
             defaults['Số QĐ phê duyệt'] = _safe_str(row.get('Số QĐ phê duyệt'))
             defaults['Ngày phê duyệt'] = _safe_date(row.get('Ngày phê duyệt'))
-            defaults['Giá trị dự toán'] = _safe_int(row.get('Giá trị dự toán'))
+            defaults['Giá trị dự toán'] = _safe_num(row.get('Giá trị dự toán'))
 
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -118,7 +121,7 @@ def render_kh_dau_thau(ma_ct, ten_ct, wid_key):
             with c2:
                 ngay = st.date_input(f"Ngày duyệt {loai}", value=_safe_date(row_data.get('Ngày phê duyệt')), format="DD/MM/YYYY", key=f"kh_{loai}_ngay_{wid_key}")
             with c3:
-                gt_str = st.text_input(f"GT gói thầu {loai} (đồng)", value=format_num_val(_safe_int(row_data.get('GT gói thầu', 0))), key=f"kh_{loai}_gt_{wid_key}")
+                gt_str = st.text_input(f"GT gói thầu {loai} (đồng)", value=format_num_val(_safe_num(row_data.get('GT gói thầu', 0))), key=f"kh_{loai}_gt_{wid_key}")
             results.append({'Loại gói': loai, 'Số QĐ phê duyệt KH': soqd, 'Ngày phê duyệt': ngay, 'GT gói thầu': parse_num_val(gt_str)})
         
         # File upload - mục đ
@@ -139,12 +142,25 @@ def render_kq_dau_thau(ma_ct, ten_ct, wid_key):
             row_data = df[df['Loại gói'] == loai].iloc[0] if not df.empty and (df['Loại gói'] == loai).any() else pd.Series()
             c1, c2, c3 = st.columns(3)
             with c1:
-                soqd = st.text_input(f"Số QĐ KQ {loai}", value=_safe_str(row_data.get('Số QĐ phê duyệt KQ', '')), key=f"kq_{loai}_soqd_{wid_key}")
+                soqd = st.text_input(f"Số QĐ, ngày duyệt {loai}", value=_safe_str(row_data.get('Số QĐ phê duyệt KQ', '')), key=f"kq_{loai}_soqd_{wid_key}")
             with c2:
                 ngay = st.date_input(f"Ngày duyệt KQ {loai}", value=_safe_date(row_data.get('Ngày phê duyệt')), format="DD/MM/YYYY", key=f"kq_{loai}_ngay_{wid_key}")
             with c3:
-                gt_str = st.text_input(f"GT trúng thầu {loai} (đồng)", value=format_num_val(_safe_int(row_data.get('GT gói thầu trúng', 0))), key=f"kq_{loai}_gt_{wid_key}")
-            results.append({'Loại gói': loai, 'Số QĐ phê duyệt KQ': soqd, 'Ngày phê duyệt': ngay, 'GT gói thầu trúng': parse_num_val(gt_str)})
+                gt_str = st.text_input(f"GT gói thầu {loai} (đồng)", value=format_num_val(_safe_num(row_data.get('GT gói thầu trúng', 0))), key=f"kq_{loai}_gt_{wid_key}")
+            c4, c5 = st.columns(2)
+            with c4:
+                so_hd = st.text_input(f"Số hợp đồng, ngày ký {loai}", value=_safe_str(row_data.get('Số hợp đồng', '')), key=f"kq_{loai}_sohd_{wid_key}")
+            with c5:
+                gt_hd_str = st.text_input(f"Giá trị hợp đồng {loai} (đồng)", value=format_num_val(_safe_num(row_data.get('Giá trị hợp đồng', 0))), key=f"kq_{loai}_gthd_{wid_key}")
+            results.append({
+                'Loại gói': loai, 
+                'Số QĐ phê duyệt KQ': soqd, 
+                'Ngày phê duyệt': ngay, 
+                'GT gói thầu trúng': parse_num_val(gt_str),
+                'Số hợp đồng': so_hd,
+                'Giá trị hợp đồng': parse_num_val(gt_hd_str)
+            })
+            st.divider()
         
         cat_d = [c for c in DANH_MUC_HO_SO if c[0] == 'đ']
         if cat_d:
@@ -176,7 +192,7 @@ def render_hop_dong(ma_ct, ten_ct, wid_key):
                     with col_info:
                         loai = hd.get('Loại HĐ', '')
                         so_hd = hd.get('Số hợp đồng', '')
-                        gt = _safe_int(hd.get('Giá trị HĐ', 0))
+                        gt = _safe_num(hd.get('Giá trị HĐ', 0))
                         nha_thau = hd.get('Tên nhà thầu', '')
                         st.markdown(f"**{i+1}. [{loai}]** {so_hd} — GT: {format_num_val(gt)} đ")
                         if nha_thau:
@@ -213,16 +229,16 @@ def render_hop_dong(ma_ct, ten_ct, wid_key):
             
             c6, c7, c8 = st.columns(3)
             with c6:
-                gt_hd_str = st.text_input("Giá trị HĐ (đồng) *", key=f"new_gthd_{wid_key}")
+                gt_hd_str = st.text_input("Giá trị HĐ (đồng) *", value=format_num_val(0), key=f"new_gthd_{wid_key}")
             with c7:
-                gt_bl_str = st.text_input("Giá trị bảo lãnh (đồng)", key=f"new_gtbl_{wid_key}")
+                gt_bl_str = st.text_input("Giá trị bảo lãnh (đồng)", value=format_num_val(0), key=f"new_gtbl_{wid_key}")
             with c8:
                 tg_th = st.number_input("Thời gian thực hiện (ngày)", min_value=0, value=0, key=f"new_tgth_{wid_key}")
             
             st.markdown("**Tiến độ thực hiện hợp đồng**")
             c9, c10, c11 = st.columns(3)
             with c9:
-                gt_th_str = st.text_input("Giá trị thực hiện HĐ (đồng)", key=f"new_gtth_{wid_key}")
+                gt_th_str = st.text_input("Giá trị thực hiện HĐ (đồng)", value=format_num_val(0), key=f"new_gtth_{wid_key}")
             with c10:
                 so_bb = st.text_input("Số BB nghiệm thu", key=f"new_sobb_{wid_key}")
             with c11:
@@ -261,8 +277,8 @@ def render_vat_tu(ma_ct, wid_key):
         df = load_chitiet_by_ma('vat_tu', ma_ct)
         defaults = {'TCty cấp': 0, 'ĐV cấp': 0}
         if not df.empty:
-            defaults['TCty cấp'] = _safe_int(df.iloc[0].get('TCty cấp', 0))
-            defaults['ĐV cấp'] = _safe_int(df.iloc[0].get('ĐV cấp', 0))
+            defaults['TCty cấp'] = _safe_num(df.iloc[0].get('TCty cấp', 0))
+            defaults['ĐV cấp'] = _safe_num(df.iloc[0].get('ĐV cấp', 0))
         
         c1, c2 = st.columns(2)
         with c1:
@@ -280,7 +296,7 @@ def render_nghiem_thu_qt(ma_ct, ten_ct, wid_key):
         defaults = {'Ngày nghiệm thu CT': None, 'Giá trị quyết toán CT': 0, 'Ghi chú': ''}
         if not df.empty:
             defaults['Ngày nghiệm thu CT'] = _safe_date(df.iloc[0].get('Ngày nghiệm thu CT'))
-            defaults['Giá trị quyết toán CT'] = _safe_int(df.iloc[0].get('Giá trị quyết toán CT', 0))
+            defaults['Giá trị quyết toán CT'] = _safe_num(df.iloc[0].get('Giá trị quyết toán CT', 0))
             defaults['Ghi chú'] = _safe_str(df.iloc[0].get('Ghi chú', ''))
         
         c1, c2, c3 = st.columns(3)

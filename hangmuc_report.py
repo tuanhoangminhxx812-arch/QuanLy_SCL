@@ -126,42 +126,35 @@ def generate_hangmuc():
         kh_xl_soqd, kh_xl_gt = _get_kh('XL')
         kh_tb_soqd, kh_tb_gt = _get_kh('TB')
         
-        # KQ đấu thầu
+        # KQ đấu thầu (bao gồm cả Số HĐ, GT HĐ)
         def _get_kq(loai):
             sub = kq_df[kq_df['Loại gói'] == loai] if not kq_df.empty and 'Loại gói' in kq_df.columns else pd.DataFrame()
-            if sub.empty: return '', 0
+            if sub.empty: return '', 0, '', 0
             r = sub.iloc[0]
+            # Số QĐ + ngày
             soqd = _safe_val(r.get('Số QĐ phê duyệt KQ', ''))
-            gt = _safe_int(r.get('GT gói thầu trúng', 0))
-            return soqd, gt
-        
-        kq_xl_soqd, kq_xl_gt = _get_kq('XL')
-        kq_tb_soqd, kq_tb_gt = _get_kq('TB')
-        
-        # Hợp đồng - tách XL và TB
-        def _get_hd(loai_filter):
-            if hd_df.empty or 'Loại HĐ' not in hd_df.columns:
-                return '', 0
-            sub = hd_df[hd_df['Loại HĐ'] == loai_filter]
-            if sub.empty: return '', 0
-            r = sub.iloc[0]
-            so_hd = _safe_val(r.get('Số hợp đồng', ''))
-            ngay_ky = r.get('Ngày ký HĐ', '')
-            if pd.notna(ngay_ky) and so_hd:
+            ngay_qd = r.get('Ngày phê duyệt', '')
+            if pd.notna(ngay_qd) and soqd:
                 try:
-                    if isinstance(ngay_ky, pd.Timestamp):
-                        ngay_ky = ngay_ky.strftime('%d/%m/%Y')
-                    so_hd = f"{so_hd}, ngày {ngay_ky}"
+                    if isinstance(ngay_qd, pd.Timestamp):
+                        ngay_qd = ngay_qd.strftime('%d/%m/%Y')
+                    soqd = f"{soqd}, ngày {ngay_qd}"
                 except: pass
-            gt_hd = _safe_int(r.get('Giá trị HĐ', 0))
-            return so_hd, gt_hd
+            gt = _safe_int(r.get('GT gói thầu trúng', 0))
+            # Số HĐ + GT HĐ (từ cùng bảng kq_dau_thau)
+            so_hd = _safe_val(r.get('Số hợp đồng', ''))
+            gt_hd = _safe_int(r.get('Giá trị hợp đồng', 0))
+            return soqd, gt, so_hd, gt_hd
         
-        hd_xl_so, hd_xl_gt = _get_hd('Xây lắp')
-        hd_tb_so, hd_tb_gt = _get_hd('Thiết bị')
+        kq_xl_soqd, kq_xl_gt, hd_xl_so, hd_xl_gt = _get_kq('XL')
+        kq_tb_soqd, kq_tb_gt, hd_tb_so, hd_tb_gt = _get_kq('TB')
         
-        # Đơn vị thi công - from first contract
+        # Đơn vị thi công - ưu tiên từ DB, fallback từ HĐ
         don_vi_tc = ''
-        if not hd_df.empty and 'Tên nhà thầu' in hd_df.columns:
+        if not db_match.empty:
+            dv = _safe_val(db_match.iloc[0].get('Đơn vị QL', ''))
+            if dv: don_vi_tc = dv
+        if not don_vi_tc and not hd_df.empty and 'Tên nhà thầu' in hd_df.columns:
             nha_thau = hd_df.iloc[0].get('Tên nhà thầu', '')
             don_vi_tc = _safe_val(nha_thau)
         

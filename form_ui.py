@@ -358,10 +358,10 @@ def render_full_form(selected_edit_ct, sel_ma, new_tt, new_tiendo, new_noidung):
     val_SCL_qt = val_E1_qt - val_F_qt
     set_val('SCL', val_SCL_dt, val_SCL_qt)
 
-    if changed[0]:
-        st.session_state.sub_df = calculated_df
-        st.rerun()
+    # Luôn cập nhật lại Chênh lệch sau tính toán
+    calculated_df['Chênh lệch'] = calculated_df['Giá trị Dự toán'] - calculated_df['Giá trị quyết toán']
 
+    # ── LƯU DỮ LIỆU (đặt TRƯỚC st.rerun() để không bị "nuốt" lần bấm Lưu) ──
     st.divider()
     if st.button("💾 Lưu tất cả dữ liệu", type="primary", key=f"save_{wid_key}"):
         if not ten_ct.strip():
@@ -384,7 +384,7 @@ def render_full_form(selected_edit_ct, sel_ma, new_tt, new_tiendo, new_noidung):
                         break
                 df_save.to_excel(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Tổng hợp.xlsx'), index=False)
                 
-                # 2. Update database_cong_trinh.xlsx
+                # 2. Update database_cong_trinh.xlsx — dùng calculated_df (đã tính toán đầy đủ)
                 main_row = {
                     'STT': stt, 'Tên Công trình': ten_ct, 'Mã CT': ma_ct, 'Kế hoạch': ke_hoach,
                     'Số Phương án': so_pa, 'Ngày Phương án': ngay_pa, 'Giá trị Phương án': gt_pa,
@@ -400,44 +400,63 @@ def render_full_form(selected_edit_ct, sel_ma, new_tt, new_tiendo, new_noidung):
                     'Ngày khởi công': ngay_khoi_cong, 'Ngày hoàn thành': ngay_hoan_thanh
                 }
                 rows_to_add = [main_row]
-                for index, row in edited_sub_df.iterrows():
+                for index, row in calculated_df.iterrows():
                     if pd.notna(row['Tên Hạng mục']) and str(row['Tên Hạng mục']).strip() != "":
                         sub_row = {col: None for col in ALL_COLUMNS}
                         sub_row['STT'] = row.get('STT')
                         sub_row['Tên Công trình'] = row.get('Tên Hạng mục')
                         sub_row['Mã CT'] = ma_ct
-                        sub_row['Giá trị Dự toán'] = row.get('Giá trị Dự toán')
-                        sub_row['Giá trị Q.định phê duyệt QT công trình'] = row.get('Giá trị quyết toán')
-                        sub_row['Ghi chú'] = row.get('Chênh lệch')
+                        sub_row['Giá trị Dự toán'] = int(row.get('Giá trị Dự toán', 0))
+                        sub_row['Giá trị Q.định phê duyệt QT công trình'] = int(row.get('Giá trị quyết toán', 0))
+                        sub_row['Ghi chú'] = int(row.get('Chênh lệch', 0))
                         rows_to_add.append(sub_row)
                 
                 new_data = pd.DataFrame(rows_to_add)
                 db_df = load_db_data()
                 
-                # Delete old project records by checking Mã CT
+                # Delete ALL old project records matching Mã CT (xóa tất cả bản trùng)
                 if ma_ct:
-                    start_indices = db_df.index[db_df['Mã CT'].astype(str).str.strip() == ma_ct].tolist()
-                    if not start_indices:
-                        # Fallback to name match
-                        start_indices = db_df.index[db_df['Tên Công trình'] == ten_ct].tolist()
-                        
-                    if start_indices:
-                        start_idx = start_indices[0]
+                    main_stt_vals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+                    rows_to_drop = []
+                    
+                    # Find all main-row indices matching this Mã CT
+                    match_indices = db_df.index[db_df['Mã CT'].astype(str).str.strip() == ma_ct].tolist()
+                    if not match_indices:
+                        match_indices = db_df.index[db_df['Tên Công trình'] == ten_ct].tolist()
+                    
+                    # Filter to only main rows (STT = I, II, III...)
+                    section_starts = []
+                    for mi in match_indices:
+                        if str(db_df.at[mi, 'STT']).strip().upper() in main_stt_vals:
+                            section_starts.append(mi)
+                    
+                    # For each section start, find end and mark all rows for deletion
+                    for start_idx in section_starts:
                         end_idx = len(db_df)
                         for i in range(start_idx + 1, len(db_df)):
                             val = str(db_df.at[i, 'STT']).strip().upper()
-                            if val in ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']:
+                            if val in main_stt_vals:
                                 end_idx = i
                                 break
-                        db_df = db_df.drop(db_df.index[start_idx:end_idx])
+                        rows_to_drop.extend(db_df.index[start_idx:end_idx].tolist())
+                    
+                    if rows_to_drop:
+                        db_df = db_df.drop(index=rows_to_drop)
                 
                 updated_df = pd.concat([db_df, new_data], ignore_index=True)
                 updated_df.to_excel(DB_FILE, index=False)
                 
                 if 'sub_df' in st.session_state:
                     del st.session_state['sub_df']
+                if 'last_edit_ct' in st.session_state:
+                    del st.session_state['last_edit_ct']
                 
                 st.success("🎉 Lưu trữ dữ liệu thành công!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Lỗi khi lưu dữ liệu: {e}")
+
+    # ── AUTO-RERUN để cập nhật UI (đặt SAU nút Lưu) ──
+    if changed[0]:
+        st.session_state.sub_df = calculated_df
+        st.rerun()

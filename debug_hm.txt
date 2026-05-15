@@ -1,0 +1,1 @@
+['Đại tu lưới trung hạ thế, trạm hạ thế', 'Đại tu thiết bị trung hạ thế (máy phát, MBT, Re,...)', 'Đại tu công trình xây dựng dân dụng', 'Đại tu công xa', 'Đại tu TSCĐ khác']

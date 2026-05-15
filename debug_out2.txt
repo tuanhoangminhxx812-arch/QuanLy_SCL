@@ -1,0 +1,7 @@
+Max row: 16, Max col: 34
+Row 1: ['STT', 'Mã công trình', 'Đơn vị', 'Tên công trình', 'Nội dung', 'Mã TS', 'Tiến độ thực hiện', 'Giá trị khái toán', 'PAKT-DT']
+Row 2: [None, None, None, None, None, None, None, None, 'Số QĐ, ngày duyệt']
+Row 3: [None, None, None, None, None, None, None, None, None]
+Row 4: [None, 'Lưới và trạm điện', None, '=SUMPRODUCT(--ISTEXT(D5:D5))', None, None, None, '=SUM(H5:H5)', None]
+Row 5: [1, 'VTAD2605001', 'Công ty Điện lực Vũng Tàu', 'Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026 ', None, '', None, 12552.9, '111/QĐ_PCVT, ngày 29/03/2026\n']
+Done
