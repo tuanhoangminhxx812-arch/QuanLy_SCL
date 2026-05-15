@@ -146,17 +146,21 @@ def analyze_health(row,cy,cm):
     kt=float(row.get('Khái toán',0)) if pd.notna(row.get('Khái toán')) else 0
     th=float(row.get('Thực hiện',0)) if pd.notna(row.get('Thực hiện')) else 0
     r=(th/kt*100) if kt>0 else 0
-    if status in['Hoàn thành','Nghiệm thu']:return "Hoàn thành","🟢","Đã hoàn thành", r
+    
+    def highlight(text, pct):
+        return f"{text} <span style='color:#e11d48; font-weight:bold;'>({pct:.1f}%)</span>"
+        
+    if status in['Hoàn thành','Nghiệm thu']:return "Hoàn thành","🟢",highlight("Đã hoàn thành. Giải ngân", r)
     kc_m,kc_y=parse_date_from_text(td,'KC');ht_m,ht_y=parse_date_from_text(td,'HT')
     if ht_m and ht_y:
         ml=(ht_y-cy)*12+(ht_m-cm)
-        if ml<0:return "Quá hạn","🔴",f"Trễ {-ml} tháng (HT: {ht_m}/{ht_y})", r
-        if ml<=2 and r<30:return "Nguy cơ","🟡",f"Còn {ml} tháng, GN thấp", r
+        if ml<0:return "Quá hạn","🔴",highlight(f"Trễ {-ml} tháng (HT: {ht_m}/{ht_y}). GN", r)
+        if ml<=2 and r<30:return "Nguy cơ","🟡",highlight(f"Còn {ml} tháng, GN thấp", r)
     if kc_m and kc_y:
         mp=(cy-kc_y)*12+(cm-kc_m)
         if mp>2 and status in['Lập PAKT-Tổng dự toán','Lập kế hoạch đấu thầu']:
-            return "Trễ tiến độ","🔴",f"Qua KC {mp} tháng, vẫn '{status}'", r
-    return "Bình thường","🔵","Tiến độ BT", r
+            return "Trễ tiến độ","🔴",f"Qua KC {mp} tháng, vẫn '{status}'"
+    return "Bình thường","🔵",highlight("Tiến độ BT. GN", r)
 
 # ── Load data ──
 @st.cache_data(ttl=300)
@@ -235,9 +239,9 @@ if page=="📊 Tổng quan":
         now=datetime.datetime.now();cy,cm=now.year,now.month
         hd_list=[]
         for _,r in df_th.iterrows():
-            hs,hi,hins,gn_rate=analyze_health(r,cy,cm)
+            hs,hi,hins=analyze_health(r,cy,cm)
             hd_list.append({'Mã CT':r.get('Mã CT',''),'Tên công trình':r.get('Tên công trình',''),
-                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins, 'Tỷ lệ GN': gn_rate, '_s':hs})
+                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins,'_s':hs})
         df_h=pd.DataFrame(hd_list)
         if 'Tên công trình' in df_h.columns:
             df_h['Tên công trình'] = df_h['Tên công trình'].apply(shorten_name)
@@ -249,12 +253,24 @@ if page=="📊 Tổng quan":
             r2.metric("🔵 Bình thường",len(df_h[df_h['_s']=='Bình thường']))
             r3.metric("🟡 Nguy cơ",len(df_h[df_h['_s']=='Nguy cơ']))
             r4.metric("🔴 Quá hạn/Trễ",len(df_h[df_h['_s'].isin(['Quá hạn','Trễ tiến độ'])]))
-            st.dataframe(df_h.drop(columns=['_s']),hide_index=True,width='stretch',
-                         column_config={
-                             'Tỷ lệ GN': st.column_config.ProgressColumn(
-                                 format="%.1f%%", min_value=0, max_value=100
-                             )
-                         })
+            
+            # Render as styled HTML to support rich text inline formatting
+            html_df = df_h.drop(columns=['_s']).copy()
+            html_table = html_df.to_html(escape=False, index=False)
+            
+            st.markdown(f"""
+            <style>
+            .health-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-family: 'Inter', sans-serif; font-size: 14px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
+            .health-table th {{ background-color: #f8fafc; color: #475569; font-weight: 600; padding: 12px 16px; text-align: left; border-bottom: 2px solid #e2e8f0; }}
+            .health-table td {{ padding: 12px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; }}
+            .health-table tr:hover {{ background-color: #f8fafc; }}
+            </style>
+            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <table class="health-table">
+                    {html_table.replace('<table border="1" class="dataframe">', '').replace('</table>', '')}
+                </table>
+            </div>
+            """, unsafe_allow_html=True)
 
         # Charts
         if HAS_PLOTLY:
