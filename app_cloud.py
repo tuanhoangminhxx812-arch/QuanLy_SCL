@@ -151,7 +151,7 @@ with st.sidebar:
     st.divider()
     page=st.radio("📂 Chuyên mục",
         ["📊 Tổng quan","📋 Thông tin CT","📄 Thuyết minh QT",
-         "🔍 Phiếu thẩm tra","📜 BC & QĐ phê duyệt"],
+         "🔍 Phiếu thẩm tra","📜 Báo cáo thẩm tra","📜 Quyết định phê duyệt"],
         label_visibility="collapsed")
     st.divider()
     st.caption(f"Cập nhật: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
@@ -421,9 +421,9 @@ elif page=="🔍 Phiếu thẩm tra":
         st.write('')
         st.markdown(preview_html,unsafe_allow_html=True)
 
-# ── PAGE 5: BÁO CÁO & QĐ ──
-elif page=="📜 BC & QĐ phê duyệt":
-    st.markdown('<p class="page-title">📜 Báo cáo thẩm tra & Quyết định phê duyệt</p>',unsafe_allow_html=True)
+# ── PAGE 5: BÁO CÁO THẨM TRA ──
+elif page=="📜 Báo cáo thẩm tra":
+    st.markdown('<p class="page-title">📜 Báo cáo thẩm tra quyết toán</p>',unsafe_allow_html=True)
     row_th,mr,ten,cd=_select_ct("p5_sel")
     if mr is not None:
         bd=get_cost_breakdown(cd)
@@ -431,8 +431,7 @@ elif page=="📜 BC & QĐ phê duyệt":
         c_qt=bd.get('C',{}).get('qt',0);scl_qt=bd.get('SCL',{}).get('qt',0)
         now=datetime.datetime.now()
 
-        # 5a - Báo cáo thẩm tra
-        st.markdown('<p class="section-title">5a. Báo cáo thẩm tra quyết toán</p>',unsafe_allow_html=True)
+        st.markdown('<p class="section-title">Báo cáo thẩm tra quyết toán</p>',unsafe_allow_html=True)
         dv5=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else ''
         gc5=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else ''
         so_hd5=str(mr.get('Số Hợp đồng xây lắp','')) if pd.notna(mr.get('Số Hợp đồng xây lắp')) else ''
@@ -448,10 +447,17 @@ elif page=="📜 BC & QĐ phê duyệt":
         st.write('')
         st.markdown(preview5a,unsafe_allow_html=True)
 
-        st.divider()
+# ── PAGE 6: QUYẾT ĐỊNH PHÊ DUYỆT ──
+elif page=="📜 Quyết định phê duyệt":
+    st.markdown('<p class="page-title">📜 Quyết định phê duyệt quyết toán</p>',unsafe_allow_html=True)
+    row_th,mr,ten,cd=_select_ct("p6_sel")
+    if mr is not None:
+        bd=get_cost_breakdown(cd)
+        a_qt=bd.get('A',{}).get('qt',0);b_qt=bd.get('B',{}).get('qt',0)
+        c_qt=bd.get('C',{}).get('qt',0);scl_qt=bd.get('SCL',{}).get('qt',0)
+        now=datetime.datetime.now()
 
-        # 5b - Quyết định phê duyệt
-        st.markdown('<p class="section-title">5b. Quyết định phê duyệt quyết toán</p>',unsafe_allow_html=True)
+        st.markdown('<p class="section-title">Quyết định phê duyệt quyết toán</p>',unsafe_allow_html=True)
         from form_module import doc_so_vn
         bang_chu=doc_so_vn(scl_qt) if scl_qt>0 else ''
         can_cu5=str(mr.get('Căn cứ pháp lý','')) if pd.notna(mr.get('Căn cứ pháp lý')) else ''
