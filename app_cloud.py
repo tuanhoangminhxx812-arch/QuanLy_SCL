@@ -70,14 +70,14 @@ html,body,.stApp{font-family:'Inter',sans-serif}
     font-weight: 700;
     letter-spacing: 1px;
 }
-div[data-testid="stVerticalBlock"] > div.element-container:has(.sticky-anchor) + div.element-container {
+div[data-testid="stVerticalBlock"]:has(.header-content-wrapper) {
     position: sticky !important;
     top: 2.875rem !important;
     z-index: 999 !important;
-    background-color: white;
-    padding: 10px 0;
-    margin-top: -10px;
-    border-bottom: 1px solid #f1f5f9;
+    background-color: white !important;
+    padding: 15px 0 10px 0;
+    margin-top: -15px;
+    border-bottom: 1px solid #e2e8f0;
 }
 .metric-card{background:linear-gradient(135deg,#1565C0,#1E88E5);border-radius:14px;
 padding:20px 16px;text-align:center;border:1px solid rgba(255,255,255,.2);
@@ -233,10 +233,10 @@ def shorten_name(name):
     return name
 
 # ── GLOBAL HEADER ──
-st.markdown('<div class="sticky-anchor"></div>', unsafe_allow_html=True)
 header_container = st.container()
 
 with header_container:
+    st.markdown('<div class="header-content-wrapper"></div>', unsafe_allow_html=True)
     st.markdown('<h1 class="main-title">HỆ THỐNG QUẢN LÝ QUYẾT TOÁN SỬA CHỮA LỚN</h1>', unsafe_allow_html=True)
 
 # ── PAGE 1: TỔNG QUAN ──
