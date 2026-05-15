@@ -133,13 +133,46 @@ def doc_so_vn(n):
     return res[0].upper() + res[1:] + " đồng"
 
 def format_num_val(v):
+    """Format số tiền kiểu Việt Nam: dấu . phân cách hàng nghìn, dấu , phân cách thập phân."""
     if pd.isna(v) or v == "" or v is None: return "0"
-    try: return f"{int(float(v)):,}"
+    try:
+        f_val = float(v)
+        if f_val == int(f_val):
+            # Số nguyên: 13254 → "13.254"
+            return f"{int(f_val):,}".replace(",", ".")
+        else:
+            # Số thập phân: 13254.6 → "13.254,6"
+            int_part = int(f_val)
+            dec_part = round(f_val - int_part, 4)
+            dec_str = f"{dec_part:.10f}".rstrip('0').lstrip('0').lstrip('.')
+            int_formatted = f"{int_part:,}".replace(",", ".")
+            return f"{int_formatted},{dec_str}"
     except: return "0"
 
 def parse_num_val(s):
+    """Parse số tiền kiểu VN (dấu . hàng nghìn, dấu , thập phân) → số."""
     if not s: return 0
-    try: return int(str(s).replace(',', '').replace('.', '').strip())
+    s = str(s).strip()
+    try:
+        # Kiểu VN: "13.254,6" → 13254.6
+        if ',' in s and '.' in s:
+            s = s.replace('.', '').replace(',', '.')
+        elif ',' in s and '.' not in s:
+            # Có thể là "13,254" (VN decimal) hoặc legacy "13,254" (EN thousands)
+            # Nếu chỉ 1 dấu , và phần sau , < 3 ký tự → thập phân VN
+            parts = s.split(',')
+            if len(parts) == 2 and len(parts[1]) <= 3:
+                s = s.replace(',', '.')
+            else:
+                s = s.replace(',', '')
+        elif '.' in s:
+            # "13.254" — kiểu VN hàng nghìn → bỏ dấu .
+            parts = s.split('.')
+            if all(len(p) <= 3 for p in parts[1:]):
+                s = s.replace('.', '')
+        
+        val = float(s)
+        return int(val) if val == int(val) else val
     except: return 0
 
 # ============================================================

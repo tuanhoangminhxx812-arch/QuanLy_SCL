@@ -340,12 +340,12 @@ elif page=="📄 Thuyết minh QT":
             <p>- Phân tích các nhân tố tăng giảm: {chenh_txt}</p>
         </div>
         '''
-        st.markdown(preview_html,unsafe_allow_html=True)
-        st.write('')
         data=export_tmqt_word(mr,cd,noi_dung)
         if data:
             safe=clean_filename(ten)
             st.markdown(create_download_link(data, f"TMQT_{safe}.docx", "📥 Xuất Word - Thuyết minh QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
+        st.write('')
+        st.markdown(preview_html,unsafe_allow_html=True)
 
 
 # ── PAGE 4: PHIẾU THẨM TRA ──
@@ -383,12 +383,12 @@ elif page=="🔍 Phiếu thẩm tra":
             <p style="font-style:italic;color:#666;">(Phần Kết quả kiểm tra — trống, người dùng tự ghi khi in bản cứng)</p>
         </div>
         '''
-        st.markdown(preview_html,unsafe_allow_html=True)
-        st.write('')
         data=export_phieu_tham_tra_word(mr)
         if data:
             safe=clean_filename(ten)
             st.markdown(create_download_link(data, f"Phieu_tham_tra_{safe}.docx", "📥 Xuất Word - Phiếu thẩm tra QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
+        st.write('')
+        st.markdown(preview_html,unsafe_allow_html=True)
 
 # ── PAGE 5: BÁO CÁO & QĐ ──
 elif page=="📜 BC & QĐ phê duyệt":
@@ -453,12 +453,12 @@ elif page=="📜 BC & QĐ phê duyệt":
             <p>Sau khi xem xét thẩm tra hồ sơ, tổ thẩm tra quyết toán chấp thuận tổng giá trị quyết toán công trình nêu trên: <b>{_fmt_money_dot(scl_qt)}</b> đồng</p>
         </div>
         '''
-        st.markdown(preview5a,unsafe_allow_html=True)
-        st.write('')
         data_bc=export_bao_cao_tham_tra_word(mr,cd)
         if data_bc:
             safe=clean_filename(ten)
             st.markdown(create_download_link(data_bc, f"BC_tham_tra_{safe}.docx", "📥 Xuất Word - Báo cáo thẩm tra", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
+        st.write('')
+        st.markdown(preview5a,unsafe_allow_html=True)
 
         st.divider()
 
@@ -488,9 +488,9 @@ elif page=="📜 BC & QĐ phê duyệt":
             <p><b>Điều 2:</b> Nguồn vốn thực hiện công trình: Sửa chữa lớn của Điện lực Vũng Tàu.</p>
         </div>
         '''
-        st.markdown(preview5b,unsafe_allow_html=True)
-        st.write('')
         data_qd=export_qd_phe_duyet_word(mr,cd)
         if data_qd:
             safe=clean_filename(ten)
             st.markdown(create_download_link(data_qd, f"QD_phe_duyet_{safe}.docx", "📥 Xuất Word - QĐ phê duyệt QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
+        st.write('')
+        st.markdown(preview5b,unsafe_allow_html=True)
