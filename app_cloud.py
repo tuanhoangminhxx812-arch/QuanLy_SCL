@@ -99,6 +99,10 @@ line-height:1.6;color:#000000;box-shadow:0 2px 20px rgba(0,0,0,.18);margin:0 aut
 .a4-preview table{width:100%;border-collapse:collapse;margin:8pt 0;}
 .a4-preview td,.a4-preview th{padding:5pt;vertical-align:top;}
 div[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden}
+.doc-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:4px;}
+.doc-card-title{font-weight:700;color:#1565C0;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.doc-card-sub{font-size:12px;color:#64748b;margin-bottom:8px;}
+.doc-file-chip{display:inline-flex;align-items:center;gap:5px;background:#e0edff;color:#1565C0;border-radius:20px;padding:3px 10px;font-size:12px;margin:2px;}
 </style>""", unsafe_allow_html=True)
 
 # ── Helpers ──
@@ -191,12 +195,16 @@ def load_all():
 df_th=load_all()
 db_df=load_db_data()
 
+# ── Session state ──
+if 'dli_files' not in st.session_state:
+    st.session_state.dli_files = {}  # {ma_ct: {doc_type: [file_name_list]}}
+
 # ── Sidebar ──
 with st.sidebar:
     st.markdown('<p class="sidebar-logo" style="font-size: 28px !important; line-height: 1.3; margin-bottom: 5px;">Công ty Điện lực Vũng Tàu</p>',unsafe_allow_html=True)
     st.divider()
     page=st.radio("📂 Chuyên mục",
-        ["📊 Tổng quan","📋 Bảng tổng hợp QT","📄 Thuyết minh QT",
+        ["📊 Tổng quan","📁 Dữ liệu đầu vào","📋 Bảng tổng hợp QT","📄 Thuyết minh QT",
          "🔍 Phiếu thẩm tra","📜 Báo cáo thẩm tra","📜 Quyết định phê duyệt"],
         label_visibility="collapsed")
     st.divider()
@@ -328,6 +336,70 @@ if page=="📊 Tổng quan":
         st.dataframe(dd_disp,hide_index=True,width='stretch')
 
 
+
+# ── PAGE 1b: DỮ LIỆU ĐẦU VÀO ──
+elif page=="📁 Dữ liệu đầu vào":
+    DOC_TYPES = [
+        ("📓", "QĐ kế hoạch vốn SCL Công ty"),
+        ("📍", "PAKT-DT được duyệt"),
+        ("📅", "Kế hoạch Đấu thầu"),
+        ("🏆", "Kết quả Đấu thầu"),
+        ("📝", "Hợp Đồng"),
+        ("✅", "Các Biên Bản Nghiệm Thu"),
+        ("💰", "Quyết toán A-B"),
+        ("📊", "Bảng Tổng Hợp (CT SCL của TCT)"),
+        ("💻", "PM_092 (ERP)"),
+    ]
+
+    # Chọn công trình trong header
+    names_dli = []
+    for _, r in df_th.iterrows():
+        ma = str(r.get('Mã CT', '')).strip()
+        ten = str(r.get('Tên công trình', '')).strip()
+        names_dli.append(f"{ma} - {ten}")
+    sel_dli = header_container.selectbox("Chọn công trình:", names_dli, key="dli_sel")
+
+    if sel_dli:
+        ma_dli = sel_dli.split(" - ")[0].strip()
+        if ma_dli not in st.session_state.dli_files:
+            st.session_state.dli_files[ma_dli] = {dt: [] for _, dt in DOC_TYPES}
+
+        st.markdown(f'<p class="page-title">📁 Dữ liệu đầu vào — {ma_dli}</p>', unsafe_allow_html=True)
+
+        # Hiển thị 9 loại tài liệu theo lưới 3 cột
+        cols_per_row = 3
+        for row_idx in range(0, len(DOC_TYPES), cols_per_row):
+            row_types = DOC_TYPES[row_idx:row_idx + cols_per_row]
+            grid_cols = st.columns(cols_per_row)
+            for col_idx, (icon, dt_name) in enumerate(row_types):
+                with grid_cols[col_idx]:
+                    st.markdown(f"""
+                    <div class="doc-card">
+                        <div class="doc-card-title">{icon} {dt_name}</div>
+                        <div class="doc-card-sub">Tải lên file tài liệu liên quan</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # File uploader ẩn tiêu đề
+                    uploaded = st.file_uploader(
+                        label=dt_name,
+                        accept_multiple_files=True,
+                        type=['pdf','docx','doc','xlsx','xls','png','jpg','jpeg'],
+                        key=f"up_{ma_dli}_{row_idx}_{col_idx}",
+                        label_visibility="collapsed"
+                    )
+                    if uploaded:
+                        existing = st.session_state.dli_files[ma_dli].get(dt_name, [])
+                        for f in uploaded:
+                            if f.name not in existing:
+                                existing.append(f.name)
+                        st.session_state.dli_files[ma_dli][dt_name] = existing
+
+                    # Hiển thị file đã upload
+                    file_list = st.session_state.dli_files.get(ma_dli, {}).get(dt_name, [])
+                    if file_list:
+                        chips = "".join([f'<span class="doc-file-chip">📄 {fn}</span>' for fn in file_list])
+                        st.markdown(f'<div style="margin-top:4px;">{chips}</div>', unsafe_allow_html=True)
 
 # ── PAGE 2: BẢNG TỔNG HỢP QT ──
 elif page=="📋 Bảng tổng hợp QT":
