@@ -4,3 +4,4 @@ streamlit
 python-docx
 openpyxl
 plotly
+xlsxwriter
