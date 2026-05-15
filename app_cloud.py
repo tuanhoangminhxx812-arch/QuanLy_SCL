@@ -86,14 +86,21 @@ def clean_filename(name):
 
 def fmt_money(v):
     try:
-        v=int(float(v))
-        if v>=1e9:return f"{v/1e9:,.2f} tỷ"
-        if v>=1e6:return f"{v/1e6:,.1f} tr"
-        return f"{v:,}"
+        v=float(v)
+        if v>=1e9: s = f"{v/1e9:,.2f} tỷ"
+        elif v>=1e6: s = f"{v/1e6:,.1f} tr"
+        else:
+            if v.is_integer(): s = f"{int(v):,}"
+            else: s = f"{v:,.1f}"
+        return s.replace(',', 'X').replace('.', ',').replace('X', '.')
     except:return "0"
 
 def fmt_full(v):
-    try:return f"{int(float(v)):,}"
+    try:
+        f = float(v)
+        if f.is_integer(): s = f"{int(f):,}"
+        else: s = f"{f:,.1f}"
+        return s.replace(',', 'X').replace('.', ',').replace('X', '.')
     except:return "0"
 
 def status_color(s):
@@ -251,9 +258,14 @@ if page=="📊 Tổng quan":
         if 'Tên công trình' in dd.columns:
             dd['Tên công trình'] = dd['Tên công trình'].apply(shorten_name)
         for c in ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']:
-            if c in dd.columns:dd[c]=dd[c].fillna(0).astype(int)
-        ccfg={c:st.column_config.NumberColumn(format="%,d") for c in ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán'] if c in dd.columns}
-        st.dataframe(dd,hide_index=True,width='stretch',column_config=ccfg)
+            if c in dd.columns:
+                dd[c]=dd[c].fillna(0).astype(int)
+        
+        dd_disp = dd.copy()
+        for c in ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']:
+            if c in dd_disp.columns:
+                dd_disp[c] = dd_disp[c].apply(fmt_full)
+        st.dataframe(dd_disp,hide_index=True,width='stretch')
 
 
 
@@ -287,12 +299,42 @@ elif page=="📋 Thông tin CT":
             for c in ['Giá trị Dự toán','Giá trị QT']:
                 sub[c]=pd.to_numeric(sub[c],errors='coerce').fillna(0).astype(int)
             sub['Chênh lệch']=sub['Giá trị Dự toán']-sub['Giá trị QT']
-            st.dataframe(sub,hide_index=True,width='stretch',
-                column_config={c:st.column_config.NumberColumn(format="%,d") for c in ['Giá trị Dự toán','Giá trị QT','Chênh lệch']})
+            
+            sub_disp = sub.copy()
+            for c in ['Giá trị Dự toán','Giá trị QT','Chênh lệch']:
+                sub_disp[c] = sub_disp[c].apply(fmt_full)
+            st.dataframe(sub_disp,hide_index=True,width='stretch')
 
             # Xuất Excel
             buf=BytesIO()
-            sub.to_excel(buf,index=False,sheet_name='Quyet_toan')
+            with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+                sub.to_excel(writer, index=False, sheet_name='Quyet_toan')
+                workbook = writer.book
+                worksheet = writer.sheets['Quyet_toan']
+                
+                fmt = workbook.add_format({'font_name': 'Times New Roman', 'font_size': 12, 'border': 1, 'valign': 'vcenter'})
+                fmt_num = workbook.add_format({'font_name': 'Times New Roman', 'font_size': 12, 'border': 1, 'valign': 'vcenter', 'num_format': '#,##0'})
+                fmt_header = workbook.add_format({'font_name': 'Times New Roman', 'font_size': 12, 'bold': True, 'border': 1, 'valign': 'vcenter', 'align': 'center', 'bg_color': '#D9D9D9'})
+                
+                for col_num, value in enumerate(sub.columns.values):
+                    worksheet.write(0, col_num, value, fmt_header)
+                
+                for i, col in enumerate(sub.columns):
+                    if i == 0: width = 6
+                    elif i == 1: width = 50
+                    else: width = 18
+                    worksheet.set_column(i, i, width)
+                    
+                for row in range(len(sub)):
+                    for col in range(len(sub.columns)):
+                        val = sub.iloc[row, col]
+                        if pd.isna(val): val = ""
+                        col_name = sub.columns[col]
+                        if col_name in ['Giá trị Dự toán', 'Giá trị QT', 'Chênh lệch']:
+                            worksheet.write_number(row + 1, col, val, fmt_num)
+                        else:
+                            worksheet.write(row + 1, col, val, fmt)
+
             safe=clean_filename(ten)
             st.markdown(create_download_link(buf.getvalue(), f"Quyet_toan_{safe}.xlsx", "📥 Xuất Excel - Bảng quyết toán", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), unsafe_allow_html=True)
 
