@@ -30,9 +30,37 @@ html,body,.stApp{font-family:'Inter',sans-serif}
 [data-testid="stSidebar"] .stMarkdown h5,
 [data-testid="stSidebar"] .stMarkdown p,
 [data-testid="stSidebar"] .stMarkdown span,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stRadio label{color:#ffffff!important}
-[data-testid="stSidebar"] .stRadio label:hover{background:rgba(255,255,255,.15)!important;border-radius:8px}
+[data-testid="stSidebar"] label {color:#ffffff!important}
+[data-testid="stSidebar"] div[role="radiogroup"] {gap: 8px;}
+[data-testid="stSidebar"] div[role="radiogroup"] > label {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] {
+    background: #ffffff;
+    border-left: 5px solid #ff9800;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] p {
+    color: #1565C0 !important;
+    font-weight: 700 !important;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] div[data-testid="stMarkdownContainer"] {
+    margin-left: 5px;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
+    display: none;
+}
 .metric-card{background:linear-gradient(135deg,#1565C0,#1E88E5);border-radius:14px;
 padding:20px 16px;text-align:center;border:1px solid rgba(255,255,255,.2);
 box-shadow:0 4px 20px rgba(21,101,192,.3);transition:transform .2s}
@@ -118,17 +146,17 @@ def analyze_health(row,cy,cm):
     kt=float(row.get('Khái toán',0)) if pd.notna(row.get('Khái toán')) else 0
     th=float(row.get('Thực hiện',0)) if pd.notna(row.get('Thực hiện')) else 0
     r=(th/kt*100) if kt>0 else 0
-    if status in['Hoàn thành','Nghiệm thu']:return "Hoàn thành","🟢",f"Đã hoàn thành. Giải ngân {r:.1f}%"
+    if status in['Hoàn thành','Nghiệm thu']:return "Hoàn thành","🟢","Đã hoàn thành", r
     kc_m,kc_y=parse_date_from_text(td,'KC');ht_m,ht_y=parse_date_from_text(td,'HT')
     if ht_m and ht_y:
         ml=(ht_y-cy)*12+(ht_m-cm)
-        if ml<0:return "Quá hạn","🔴",f"Trễ {-ml} tháng (HT: {ht_m}/{ht_y}). GN {r:.1f}%"
-        if ml<=2 and r<30:return "Nguy cơ","🟡",f"Còn {ml} tháng, GN thấp ({r:.1f}%)"
+        if ml<0:return "Quá hạn","🔴",f"Trễ {-ml} tháng (HT: {ht_m}/{ht_y})", r
+        if ml<=2 and r<30:return "Nguy cơ","🟡",f"Còn {ml} tháng, GN thấp", r
     if kc_m and kc_y:
         mp=(cy-kc_y)*12+(cm-kc_m)
         if mp>2 and status in['Lập PAKT-Tổng dự toán','Lập kế hoạch đấu thầu']:
-            return "Trễ tiến độ","🔴",f"Qua KC {mp} tháng, vẫn '{status}'"
-    return "Bình thường","🔵",f"Tiến độ BT. GN {r:.1f}%"
+            return "Trễ tiến độ","🔴",f"Qua KC {mp} tháng, vẫn '{status}'", r
+    return "Bình thường","🔵","Tiến độ BT", r
 
 # ── Load data ──
 @st.cache_data(ttl=300)
@@ -207,9 +235,9 @@ if page=="📊 Tổng quan":
         now=datetime.datetime.now();cy,cm=now.year,now.month
         hd_list=[]
         for _,r in df_th.iterrows():
-            hs,hi,hins=analyze_health(r,cy,cm)
+            hs,hi,hins,gn_rate=analyze_health(r,cy,cm)
             hd_list.append({'Mã CT':r.get('Mã CT',''),'Tên công trình':r.get('Tên công trình',''),
-                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins,'_s':hs})
+                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins, 'Tỷ lệ GN': gn_rate, '_s':hs})
         df_h=pd.DataFrame(hd_list)
         if 'Tên công trình' in df_h.columns:
             df_h['Tên công trình'] = df_h['Tên công trình'].apply(shorten_name)
@@ -221,7 +249,12 @@ if page=="📊 Tổng quan":
             r2.metric("🔵 Bình thường",len(df_h[df_h['_s']=='Bình thường']))
             r3.metric("🟡 Nguy cơ",len(df_h[df_h['_s']=='Nguy cơ']))
             r4.metric("🔴 Quá hạn/Trễ",len(df_h[df_h['_s'].isin(['Quá hạn','Trễ tiến độ'])]))
-            st.dataframe(df_h.drop(columns=['_s']),hide_index=True,width='stretch')
+            st.dataframe(df_h.drop(columns=['_s']),hide_index=True,width='stretch',
+                         column_config={
+                             'Tỷ lệ GN': st.column_config.ProgressColumn(
+                                 format="%.1f%%", min_value=0, max_value=100
+                             )
+                         })
 
         # Charts
         if HAS_PLOTLY:
