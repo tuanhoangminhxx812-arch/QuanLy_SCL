@@ -68,7 +68,6 @@ html,body,.stApp{font-family:'Inter',sans-serif}
     margin-bottom: 25px;
     font-size: 32px;
     font-weight: 700;
-    text-transform: uppercase;
     letter-spacing: 1px;
 }
 div[data-testid="stVerticalBlock"] > div.element-container:has(.sticky-anchor) + div.element-container {
@@ -206,13 +205,13 @@ with st.sidebar:
 
 
 # ── Chọn CT helper ──
-def _select_ct(key):
-    st.markdown('<div class="sticky-anchor"></div>', unsafe_allow_html=True)
+def _select_ct(key, container=None):
+    if container is None: container = st
     names=[]
     for _,r in df_th.iterrows():
         ma=str(r.get('Mã CT','')).strip();ten=str(r.get('Tên công trình','')).strip()
         names.append(f"{ma} - {ten}")
-    sel=st.selectbox("Chọn công trình:",names,key=key)
+    sel=container.selectbox("Chọn công trình:",names,key=key)
     if not sel:return None,None,None,pd.DataFrame()
     ma=sel.split(" - ")[0].strip()
     ri=df_th[df_th['Mã CT']==ma].index
@@ -233,9 +232,14 @@ def shorten_name(name):
     if 'live-line' in n or 'live line' in n: return 'Công trình SCL HTĐ bằng Live-line'
     return name
 
-# ── PAGE 1: TỔNG QUAN ──
-st.markdown('<h1 class="main-title">Hệ thống quản lý Quyết toán Sửa chữa lớn</h1>', unsafe_allow_html=True)
+# ── GLOBAL HEADER ──
+st.markdown('<div class="sticky-anchor"></div>', unsafe_allow_html=True)
+header_container = st.container()
 
+with header_container:
+    st.markdown('<h1 class="main-title">HỆ THỐNG QUẢN LÝ QUYẾT TOÁN SỬA CHỮA LỚN</h1>', unsafe_allow_html=True)
+
+# ── PAGE 1: TỔNG QUAN ──
 if page=="📊 Tổng quan":
     if df_th.empty:
         st.warning("Chưa có dữ liệu Tổng hợp.xlsx")
@@ -245,13 +249,13 @@ if page=="📊 Tổng quan":
         total_th=int(df_th['Thực hiện'].fillna(0).sum()) if 'Thực hiện' in df_th.columns else 0
         ty_le=(total_th/total_kh*100) if total_kh>0 else 0
 
-        st.markdown('<div class="sticky-anchor"></div>', unsafe_allow_html=True)
-        c1,c2,c3,c4=st.columns(4)
-        for col,lbl,val in [(c1,"TỔNG SỐ CÔNG TRÌNH",str(total_ct)),
-            (c2,"TỔNG KHÁI TOÁN",fmt_money(total_kh)),
-            (c3,"TỔNG THỰC HIỆN",fmt_money(total_th)),
-            (c4,"TỶ LỆ GIẢI NGÂN",f"{ty_le:.1f}%")]:
-            col.markdown(f'<div class="metric-card"><div class="metric-label">{lbl}</div><div class="metric-val">{val}</div></div>',unsafe_allow_html=True)
+        with header_container:
+            c1,c2,c3,c4=st.columns(4)
+            for col,lbl,val in [(c1,"TỔNG SỐ CÔNG TRÌNH",str(total_ct)),
+                (c2,"TỔNG KHÁI TOÁN",fmt_money(total_kh)),
+                (c3,"TỔNG THỰC HIỆN",fmt_money(total_th)),
+                (c4,"TỶ LỆ GIẢI NGÂN",f"{ty_le:.1f}%")]:
+                col.markdown(f'<div class="metric-card"><div class="metric-label">{lbl}</div><div class="metric-val">{val}</div></div>',unsafe_allow_html=True)
 
         # Health analysis
         now=datetime.datetime.now();cy,cm=now.year,now.month
@@ -328,7 +332,7 @@ if page=="📊 Tổng quan":
 # ── PAGE 2: BẢNG TỔNG HỢP QT ──
 elif page=="📋 Bảng tổng hợp QT":
     st.markdown('<p class="page-title">📋 Bảng tổng hợp quyết toán kinh phí SCL</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p2_sel")
+    row_th,mr,ten,cd=_select_ct("p2_sel", header_container)
     if row_th is not None:
         # Bảng quyết toán kinh phí
         if mr is not None and len(cd)>1:
@@ -379,7 +383,7 @@ elif page=="📋 Bảng tổng hợp QT":
 # ── PAGE 3: TMQT ──
 elif page=="📄 Thuyết minh QT":
     st.markdown('<p class="page-title">📄 Bảng thuyết minh quyết toán</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p3_sel")
+    row_th,mr,ten,cd=_select_ct("p3_sel", header_container)
     if mr is not None:
         bd=get_cost_breakdown(cd)
         gt_dt=bd.get('SCL',{}).get('dt',0);gt_qt=bd.get('SCL',{}).get('qt',0)
@@ -428,7 +432,7 @@ elif page=="📄 Thuyết minh QT":
 # ── PAGE 4: PHIẾU THẨM TRA ──
 elif page=="🔍 Phiếu thẩm tra":
     st.markdown('<p class="page-title">🔍 Phiếu thẩm tra quyết toán</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p4_sel")
+    row_th,mr,ten,cd=_select_ct("p4_sel", header_container)
     if mr is not None:
         gc=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else ''
         dv=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else ''
@@ -462,7 +466,7 @@ elif page=="🔍 Phiếu thẩm tra":
 # ── PAGE 5: BÁO CÁO THẨM TRA ──
 elif page=="📜 Báo cáo thẩm tra":
     st.markdown('<p class="page-title">📜 Báo cáo thẩm tra quyết toán</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p5_sel")
+    row_th,mr,ten,cd=_select_ct("p5_sel", header_container)
     if mr is not None:
         bd=get_cost_breakdown(cd)
         a_qt=bd.get('A',{}).get('qt',0);b_qt=bd.get('B',{}).get('qt',0)
@@ -488,7 +492,7 @@ elif page=="📜 Báo cáo thẩm tra":
 # ── PAGE 6: QUYẾT ĐỊNH PHÊ DUYỆT ──
 elif page=="📜 Quyết định phê duyệt":
     st.markdown('<p class="page-title">📜 Quyết định phê duyệt quyết toán</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p6_sel")
+    row_th,mr,ten,cd=_select_ct("p6_sel", header_container)
     if mr is not None:
         bd=get_cost_breakdown(cd)
         a_qt=bd.get('A',{}).get('qt',0);b_qt=bd.get('B',{}).get('qt',0)
