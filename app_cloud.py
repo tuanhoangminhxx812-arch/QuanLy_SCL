@@ -178,7 +178,7 @@ with st.sidebar:
     st.markdown('<p style="color:#ffffff; font-size: 18px; font-weight: 500; margin-top: 0px; margin-bottom: 15px; line-height: 1.4;">Hệ thống quản lý Quyết toán Sửa chữa lớn</p>',unsafe_allow_html=True)
     st.divider()
     page=st.radio("📂 Chuyên mục",
-        ["📊 Tổng quan","📋 Thông tin CT","📄 Thuyết minh QT",
+        ["📊 Tổng quan","📋 Bảng tổng hợp QT","📄 Thuyết minh QT",
          "🔍 Phiếu thẩm tra","📜 Báo cáo thẩm tra","📜 Quyết định phê duyệt"],
         label_visibility="collapsed")
     st.divider()
@@ -302,31 +302,13 @@ if page=="📊 Tổng quan":
 
 
 
-# ── PAGE 2: THÔNG TIN CT ──
-elif page=="📋 Thông tin CT":
-    st.markdown('<p class="page-title">📋 Thông tin chi tiết công trình</p>',unsafe_allow_html=True)
+# ── PAGE 2: BẢNG TỔNG HỢP QT ──
+elif page=="📋 Bảng tổng hợp QT":
+    st.markdown('<p class="page-title">📋 Bảng tổng hợp quyết toán kinh phí SCL</p>',unsafe_allow_html=True)
     row_th,mr,ten,cd=_select_ct("p2_sel")
     if row_th is not None:
-        with st.container(border=True):
-            c1,c2,c3=st.columns([1.2, 1, 1.8])
-            with c1:
-                st.write(f"**Tên:** {row_th.get('Tên công trình','')}")
-                st.write(f"**Mã CT:** {row_th.get('Mã CT','')}")
-                st.write(f"**Trạng thái:** {row_th.get('Trạng thái','')}")
-                st.write("")
-                if pd.notna(row_th.get('Tiến độ')):
-                    st.markdown(f"**Tiến độ:**\n\n{row_th.get('Tiến độ','')}")
-            with c2:
-                st.write(f"**Khái toán:** {fmt_full(row_th.get('Khái toán',0))} đ")
-                st.write(f"**Thực hiện:** {fmt_full(row_th.get('Thực hiện',0))} đ")
-                st.write(f"**Quyết toán:** {fmt_full(row_th.get('Quyết toán',0))} đ")
-            with c3:
-                if pd.notna(row_th.get('Nội dung SCL')):
-                    st.markdown(f"**Nội dung SCL:**\n\n{row_th.get('Nội dung SCL','')}")
-
         # Bảng quyết toán kinh phí
         if mr is not None and len(cd)>1:
-            st.markdown('<p class="section-title">Bảng tổng hợp quyết toán kinh phí SCL</p>',unsafe_allow_html=True)
             sub=cd.iloc[1:][['STT','Tên Công trình','Giá trị Dự toán','Giá trị Q.định phê duyệt QT công trình']].copy()
             sub=sub.rename(columns={'Tên Công trình':'Tên Hạng mục','Giá trị Q.định phê duyệt QT công trình':'Giá trị QT'})
             for c in ['Giá trị Dự toán','Giá trị QT']:
