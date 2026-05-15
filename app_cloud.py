@@ -7,6 +7,7 @@ from form_module import load_db_data
 from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot)
+from github_helper import gh_list_files, gh_upload_file, gh_delete_file, has_token
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
@@ -361,45 +362,62 @@ elif page=="📁 Dữ liệu đầu vào":
 
     if sel_dli:
         ma_dli = sel_dli.split(" - ")[0].strip()
-        if ma_dli not in st.session_state.dli_files:
-            st.session_state.dli_files[ma_dli] = {dt: [] for _, dt in DOC_TYPES}
-
         st.markdown(f'<p class="page-title">📁 Dữ liệu đầu vào — {ma_dli}</p>', unsafe_allow_html=True)
 
-        # Hiển thị 9 loại tài liệu theo lưới 3 cột
-        cols_per_row = 3
-        for row_idx in range(0, len(DOC_TYPES), cols_per_row):
-            row_types = DOC_TYPES[row_idx:row_idx + cols_per_row]
-            grid_cols = st.columns(cols_per_row)
-            for col_idx, (icon, dt_name) in enumerate(row_types):
-                with grid_cols[col_idx]:
-                    st.markdown(f"""
-                    <div class="doc-card">
-                        <div class="doc-card-title">{icon} {dt_name}</div>
-                        <div class="doc-card-sub">Tải lên file tài liệu liên quan</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+        # Kiểm tra token
+        if not has_token():
+            st.warning("⚠️ Chưa cài đặt GITHUB_TOKEN trong Streamlit Secrets. Liên hệ quản trị để cấu hình.")
+        else:
+            # Hiển thị 9 loại tài liệu theo lưới 3 cột
+            cols_per_row = 3
+            for row_idx in range(0, len(DOC_TYPES), cols_per_row):
+                row_types = DOC_TYPES[row_idx:row_idx + cols_per_row]
+                grid_cols = st.columns(cols_per_row)
+                for col_idx, (icon, dt_name) in enumerate(row_types):
+                    with grid_cols[col_idx]:
+                        st.markdown(f"""
+                        <div class="doc-card">
+                            <div class="doc-card-title">{icon} {dt_name}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                    # File uploader ẩn tiêu đề
-                    uploaded = st.file_uploader(
-                        label=dt_name,
-                        accept_multiple_files=True,
-                        type=['pdf','docx','doc','xlsx','xls','png','jpg','jpeg'],
-                        key=f"up_{ma_dli}_{row_idx}_{col_idx}",
-                        label_visibility="collapsed"
-                    )
-                    if uploaded:
-                        existing = st.session_state.dli_files[ma_dli].get(dt_name, [])
-                        for f in uploaded:
-                            if f.name not in existing:
-                                existing.append(f.name)
-                        st.session_state.dli_files[ma_dli][dt_name] = existing
+                        # Lấy danh sách file hiện có trên GitHub
+                        existing_files = gh_list_files(ma_dli, dt_name)
 
-                    # Hiển thị file đã upload
-                    file_list = st.session_state.dli_files.get(ma_dli, {}).get(dt_name, [])
-                    if file_list:
-                        chips = "".join([f'<span class="doc-file-chip">📄 {fn}</span>' for fn in file_list])
-                        st.markdown(f'<div style="margin-top:4px;">{chips}</div>', unsafe_allow_html=True)
+                        # Hiển thị file hiện có
+                        if existing_files:
+                            for ef in existing_files:
+                                fc1, fc2 = st.columns([5, 1])
+                                fc1.markdown(
+                                    f'✅ <a href="{ef["download_url"]}" target="_blank" '
+                                    f'style="color:#1565C0;font-size:13px;">{ef["name"]}</a>',
+                                    unsafe_allow_html=True
+                                )
+                                if fc2.button("🗑️", key=f"del_{ma_dli}_{row_idx}_{col_idx}_{ef['sha'][:6]}",
+                                              help=f"Xóa {ef['name']}"):
+                                    if gh_delete_file(ef['path'], ef['sha']):
+                                        st.success(f"Đã xóa: {ef['name']}")
+                                        st.rerun()
+                                    else:
+                                        st.error("Xóa thất bại!")
+
+                        # Nút upload
+                        uploaded = st.file_uploader(
+                            label=f"Tải lên - {dt_name}",
+                            accept_multiple_files=True,
+                            type=['pdf','docx','doc','xlsx','xls','png','jpg','jpeg'],
+                            key=f"up_{ma_dli}_{row_idx}_{col_idx}",
+                            label_visibility="collapsed"
+                        )
+                        if uploaded:
+                            for uf in uploaded:
+                                with st.spinner(f"Đang lưu '{uf.name}' lên GitHub..."):
+                                    ok = gh_upload_file(ma_dli, dt_name, uf.name, uf.getvalue())
+                                if ok:
+                                    st.success(f"✅ Đã lưu: {uf.name}")
+                                else:
+                                    st.error(f"❌ Lỗi khi lưu: {uf.name}")
+                            st.rerun()
 
 # ── PAGE 2: BẢNG TỔNG HỢP QT ──
 elif page=="📋 Bảng tổng hợp QT":

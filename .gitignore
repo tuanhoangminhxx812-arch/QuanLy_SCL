@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 
+# Bảo mật - KHÔNG commit token lên GitHub
+.streamlit/secrets.toml
+
 # Không cần push lên cloud
 # Bỏ qua các file chạy app local
 # Ho_so_cong_trinh/ (Đã mở để push lên Cloud)
