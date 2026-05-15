@@ -318,7 +318,7 @@ elif page=="📋 Bảng tổng hợp QT":
             sub_disp = sub.copy()
             for c in ['Giá trị Dự toán','Giá trị QT','Chênh lệch']:
                 sub_disp[c] = sub_disp[c].apply(fmt_full)
-            st.dataframe(sub_disp,hide_index=True,width='stretch')
+            st.dataframe(sub_disp,hide_index=True,width='stretch',height=800)
 
             # Xuất Excel
             buf=BytesIO()
