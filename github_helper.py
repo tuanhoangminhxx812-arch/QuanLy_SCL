@@ -5,6 +5,7 @@ Cung cấp các hàm tương tác với GitHub API để lưu/đọc/xoá file t
 import base64
 import requests
 import streamlit as st
+import time
 
 GITHUB_REPO = "tuanhoangminhxx812-arch/QuanLy_SCL"
 GITHUB_BRANCH = "main"
@@ -27,7 +28,12 @@ DOC_FOLDER_MAP = {
 def _token():
     """Lấy GitHub Token từ Streamlit secrets."""
     try:
-        return st.secrets["GITHUB_TOKEN"]
+        t = st.secrets["GITHUB_TOKEN"]
+        # Nếu secrets bị khai báo lồng [GITHUB_TOKEN] -> GITHUB_TOKEN = "...",
+        # st.secrets["GITHUB_TOKEN"] trả về dict thay vì string
+        if isinstance(t, dict):
+            return t.get("GITHUB_TOKEN", "")
+        return str(t)
     except Exception:
         return ""
 
@@ -39,21 +45,30 @@ def _headers():
     }
 
 
+def _is_valid_token():
+    """Kiểm tra token có hợp lệ không (không phải placeholder)."""
+    t = _token()
+    if not t:
+        return False
+    if t.startswith("ghp_xxx") or len(t) < 20:
+        return False
+    return True
+
+
 def folder_path(ma_ct: str, doc_type: str) -> str:
     """Tạo đường dẫn thư mục trên GitHub cho loại tài liệu."""
     folder = DOC_FOLDER_MAP.get(doc_type, doc_type.replace(" ", "_"))
     return f"{BASE_PATH}/{ma_ct}/{folder}"
 
 
-def gh_list_files(ma_ct: str, doc_type: str) -> list:
-    """
-    Trả về list các file trong thư mục tài liệu của công trình.
-    Mỗi phần tử: {"name": str, "path": str, "sha": str, "download_url": str}
-    """
+# Cache danh sách file - tồn tại 60 giây để giảm API calls
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_list_files(ma_ct: str, doc_type: str) -> list:
+    """Gọi GitHub API và cache kết quả."""
     path = folder_path(ma_ct, doc_type)
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
     try:
-        r = requests.get(url, headers=_headers(), params={"ref": GITHUB_BRANCH}, timeout=10)
+        r = requests.get(url, headers=_headers(), params={"ref": GITHUB_BRANCH}, timeout=5)
         if r.status_code == 200:
             return [
                 {
@@ -65,9 +80,28 @@ def gh_list_files(ma_ct: str, doc_type: str) -> list:
                 for item in r.json()
                 if item["type"] == "file"
             ]
+        # 404 = thư mục chưa tồn tại, không phải lỗi
+        if r.status_code == 404:
+            return []
+        # 401 = token sai
+        if r.status_code == 401:
+            return []
+    except requests.exceptions.Timeout:
+        return []
     except Exception:
         pass
     return []
+
+
+def gh_list_files(ma_ct: str, doc_type: str) -> list:
+    """
+    Trả về list các file trong thư mục tài liệu của công trình.
+    Mỗi phần tử: {"name": str, "path": str, "sha": str, "download_url": str}
+    Sử dụng cache để tránh gọi API liên tục.
+    """
+    if not _is_valid_token():
+        return []
+    return _cached_list_files(ma_ct, doc_type)
 
 
 def gh_upload_file(ma_ct: str, doc_type: str, filename: str, content_bytes: bytes) -> bool:
@@ -75,13 +109,16 @@ def gh_upload_file(ma_ct: str, doc_type: str, filename: str, content_bytes: byte
     Upload hoặc cập nhật một file lên GitHub.
     Trả về True nếu thành công.
     """
+    if not _is_valid_token():
+        return False
+        
     path = f"{folder_path(ma_ct, doc_type)}/{filename}"
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
 
     # Kiểm tra file đã tồn tại chưa (cần SHA để update)
     sha = None
     try:
-        r = requests.get(url, headers=_headers(), params={"ref": GITHUB_BRANCH}, timeout=10)
+        r = requests.get(url, headers=_headers(), params={"ref": GITHUB_BRANCH}, timeout=5)
         if r.status_code == 200:
             sha = r.json().get("sha")
     except Exception:
@@ -97,7 +134,11 @@ def gh_upload_file(ma_ct: str, doc_type: str, filename: str, content_bytes: byte
 
     try:
         r = requests.put(url, headers=_headers(), json=payload, timeout=30)
-        return r.status_code in [200, 201]
+        if r.status_code in [200, 201]:
+            # Xóa cache để lần sau list lại file mới
+            _cached_list_files.clear()
+            return True
+        return False
     except Exception:
         return False
 
@@ -107,6 +148,9 @@ def gh_delete_file(path: str, sha: str) -> bool:
     Xoá một file khỏi GitHub theo đường dẫn và SHA.
     Trả về True nếu thành công.
     """
+    if not _is_valid_token():
+        return False
+        
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
     payload = {
         "message": f"Delete: {path}",
@@ -115,11 +159,15 @@ def gh_delete_file(path: str, sha: str) -> bool:
     }
     try:
         r = requests.delete(url, headers=_headers(), json=payload, timeout=10)
-        return r.status_code == 200
+        if r.status_code == 200:
+            # Xóa cache để lần sau list lại
+            _cached_list_files.clear()
+            return True
+        return False
     except Exception:
         return False
 
 
 def has_token() -> bool:
-    """Kiểm tra xem GitHub Token đã được cài đặt chưa."""
-    return bool(_token())
+    """Kiểm tra xem GitHub Token đã được cài đặt và hợp lệ chưa."""
+    return _is_valid_token()
