@@ -7,7 +7,7 @@ from form_module import load_db_data
 from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot)
-from github_helper import gh_list_files, gh_upload_file, gh_delete_file, has_token, gh_upload_root_file
+from github_helper import gh_list_files, gh_upload_file, gh_delete_file, has_token
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
@@ -203,6 +203,30 @@ def analyze_health(row,cy,cm):
     return "Bình thường","🔵","Tiến độ BT", r
 
 # ── Load data ──
+# Hàm upload trực tiếp (đặt ở đây để tránh lỗi cache module của Streamlit Cloud)
+def gh_upload_root_file(filename: str, content_bytes: bytes) -> bool:
+    import base64, requests
+    if not has_token(): return False
+    token = st.secrets.get("GITHUB_TOKEN", "")
+    if isinstance(token, dict): token = token.get("GITHUB_TOKEN", "")
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    url = f"https://api.github.com/repos/tuanhoangminhxx812-arch/QuanLy_SCL/contents/{filename}"
+    sha = None
+    try:
+        r = requests.get(url, headers=headers, params={"ref": "main"}, timeout=5)
+        if r.status_code == 200: sha = r.json().get("sha")
+    except: pass
+    payload = {
+        "message": f"Cập nhật {filename}",
+        "content": base64.b64encode(content_bytes).decode(),
+        "branch": "main",
+    }
+    if sha: payload["sha"] = sha
+    try:
+        r = requests.put(url, headers=headers, json=payload, timeout=30)
+        return r.status_code in [200, 201]
+    except: return False
+
 @st.cache_data(ttl=300)
 def load_all():
     df=load_tonghop();pm=load_pm092();hd=load_gia_tri_hop_dong()
