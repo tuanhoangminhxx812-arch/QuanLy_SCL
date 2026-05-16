@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os, re, datetime
 from io import BytesIO
-from data_helpers import load_tonghop, load_pm092, load_gia_tri_hop_dong
+from data_helpers import load_tonghop, load_pm092, load_gia_tri_hop_dong, load_capnhat_tiendo, load_pm092_monthly
 from form_module import load_db_data
 from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
@@ -107,20 +107,20 @@ div[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden}
 .doc-card-sub{font-size:12px;color:#64748b;margin-bottom:8px;}
 .doc-file-chip{display:inline-flex;align-items:center;gap:5px;background:#e0edff;color:#1565C0;border-radius:20px;padding:3px 10px;font-size:12px;margin:2px;}
 /* Custom HTML table for Bảng tổng hợp QT */
-.qt-table{width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;font-size:14px;margin-top:8px;}
+.qt-table{width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;font-size:12px;margin-top:8px;}
 .qt-table thead th{
     background:linear-gradient(135deg,#1565C0,#1976D2);color:#fff;font-weight:600;
-    padding:12px 14px;text-align:center;border:1px solid #1255a0;
-    position:sticky;top:0;z-index:10;font-size:13px;letter-spacing:0.3px;
+    padding:8px 8px;text-align:center;border:1px solid #1255a0;
+    position:sticky;top:0;z-index:10;font-size:11px;letter-spacing:0.3px;
 }
 .qt-table tbody td{
-    padding:9px 14px;border:1px solid #e2e8f0;vertical-align:middle;
+    padding:6px 8px;border:1px solid #e2e8f0;vertical-align:middle;
 }
 .qt-table tbody tr:nth-child(even){background:#f8fafc;}
 .qt-table tbody tr:hover{background:#e8f0fe;}
-.qt-table .col-stt{width:60px;text-align:center;font-weight:600;color:#1565C0;white-space:nowrap;}
-.qt-table .col-ten{text-align:left;min-width:250px;}
-.qt-table .col-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:140px;}
+.qt-table .col-stt{width:40px;text-align:center;font-weight:600;color:#1565C0;white-space:nowrap;}
+.qt-table .col-ten{text-align:left;min-width:180px;font-size:12px;}
+.qt-table .col-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:90px;}
 .qt-table .row-header td{font-weight:700;background:#eef2ff !important;}
 .qt-table .row-total td{font-weight:700;background:#dbeafe !important;border-top:2px solid #1565C0;}
 .qt-table-wrapper{max-height:700px;overflow-y:auto;border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
@@ -312,7 +312,121 @@ if page=="📊 Tổng quan":
                              )
                          })
 
-        # Charts
+        # ── BẢNG A: CẬP NHẬT TIẾN ĐỘ ──
+        st.markdown('<p class="section-title">📋 Cập nhật tiến độ thực hiện SCL</p>',unsafe_allow_html=True)
+        df_td = load_capnhat_tiendo()
+        if not df_td.empty:
+            status_badges = {
+                'Đang thi công': '#22c55e',
+                'Lập PAKT-Tổng dự toán': '#f59e0b',
+                'Lập kế hoạch đấu thầu': '#3b82f6',
+                'Hoàn thành': '#6366f1',
+            }
+            td_rows = ''
+            for _, r in df_td.iterrows():
+                tt = r.get('Trạng thái', '')
+                badge_color = status_badges.get(tt, '#94a3b8')
+                badge = f'<span style="background:{badge_color};color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;white-space:nowrap;">{tt}</span>'
+                kh_text = str(r.get('Tiến độ KH','')).replace('\\n','<br>').replace('\n','<br>')
+                
+                # Format Đã thực hiện as % if numeric
+                thuc_hien_val = r.get('Đã thực hiện', '')
+                
+                try:
+                    # Attempt to parse as float (e.g. 0.25)
+                    float_val = float(thuc_hien_val)
+                    if pd.notna(float_val):
+                        thuc_hien_val = f"{float_val:.0%}"
+                    else:
+                        thuc_hien_val = ""
+                except (ValueError, TypeError):
+                    thuc_hien_val = str(thuc_hien_val)
+                    
+                td_rows += f'''<tr>
+                    <td class="col-stt">{r.get('STT','')}</td>
+                    <td style="text-align:center;font-weight:600;color:#1565C0;white-space:nowrap;font-size:11px;">{r.get('Mã CT','')}</td>
+                    <td class="col-ten">{r.get('Tên công trình','')}</td>
+                    <td style="font-size:11px;white-space:nowrap;line-height:1.4;">{kh_text}</td>
+                    <td class="col-num">{fmt_full(r.get('Khái toán',0))}</td>
+                    <td style="text-align:center;">{badge}</td>
+                    <td style="font-size:12px;">{thuc_hien_val}</td>
+                    <td style="font-size:11px;color:#64748b;">{r.get('Ghi chú','')}</td>
+                </tr>\n'''
+            td_html = f'''<div class="qt-table-wrapper" style="max-height:500px;overflow-x:auto;">
+            <table class="qt-table" style="min-width:900px;">
+                <thead><tr>
+                    <th style="width:30px;">STT</th>
+                    <th style="min-width:90px;">Mã CT</th>
+                    <th style="min-width:180px;">Tên công trình</th>
+                    <th style="min-width:110px;">Tiến độ KH</th>
+                    <th style="min-width:100px;">Khái toán</th>
+                    <th style="min-width:100px;">Trạng thái</th>
+                    <th style="min-width:120px;">Đã thực hiện</th>
+                    <th style="min-width:100px;">Ghi chú</th>
+                </tr></thead>
+                <tbody>{td_rows}</tbody>
+            </table></div>'''
+            st.markdown(td_html, unsafe_allow_html=True)
+        else:
+            st.info("Chưa có file CapNhatTienDo.xlsx")
+
+        # ── BẢNG B: GIẢI NGÂN THEO THÁNG ──
+        st.markdown('<p class="section-title">💰 Giải ngân theo tháng (6 tháng đầu năm)</p>',unsafe_allow_html=True)
+        pm_monthly = load_pm092_monthly()
+        months = [1,2,3,4,5,6]
+        month_labels = ['T1','T2','T3','T4','T5','T6']
+        
+        # Build header
+        gn_header = '<th style="width:30px;">STT</th><th style="min-width:90px;">Mã CT</th><th style="min-width:160px;">Tên công trình</th><th style="min-width:80px;">GT HĐ</th>'
+        for ml in month_labels:
+            gn_header += f'<th style="min-width:90px;">{ml}</th>'
+        gn_header += '<th style="min-width:100px;">Tổng GN</th>'
+        
+        # Build rows from df_th
+        gn_rows = ''
+        total_by_month = {m: 0 for m in months}
+        grand_total = 0
+        for idx, (_, r) in enumerate(df_th.iterrows()):
+            ma = str(r.get('Mã CT','')).strip()
+            ten = shorten_name(r.get('Tên công trình',''))
+            hd_val = r.get('Giá trị HĐ', 0)
+            try:
+                hd_val = int(float(hd_val)) if pd.notna(hd_val) else 0
+            except:
+                hd_val = 0
+            monthly_data = pm_monthly.get(ma, {})
+            row_total = sum(monthly_data.get(m, 0) for m in months)
+            grand_total += row_total
+            
+            gn_rows += f'<tr><td class="col-stt">{idx+1}</td>'
+            gn_rows += f'<td style="text-align:center;font-weight:600;color:#1565C0;white-space:nowrap;font-size:11px;">{ma}</td>'
+            gn_rows += f'<td class="col-ten">{ten}</td>'
+            gn_rows += f'<td class="col-num">{fmt_full(hd_val) if hd_val else "0"}</td>'
+            for m in months:
+                val = monthly_data.get(m, 0)
+                total_by_month[m] += val
+                cell_style = 'class="col-num"'
+                if val > 0:
+                    cell_style = 'class="col-num" style="color:#1565C0;font-weight:600;"'
+                gn_rows += f'<td {cell_style}>{fmt_full(val) if val else "-"}</td>'
+            gn_rows += f'<td class="col-num" style="font-weight:700;color:#1565C0;">{fmt_full(row_total) if row_total else "0"}</td>'
+            gn_rows += '</tr>\n'
+        
+        # Total row
+        gn_rows += '<tr class="row-total"><td></td><td></td><td style="font-weight:700;font-size:12px;">TỔNG CỘNG</td>'
+        gn_rows += f'<td></td>'
+        for m in months:
+            gn_rows += f'<td class="col-num">{fmt_full(total_by_month[m]) if total_by_month[m] else "-"}</td>'
+        gn_rows += f'<td class="col-num" style="font-weight:700;color:#1565C0;">{fmt_full(grand_total)}</td></tr>'
+        
+        gn_html = f'''<div class="qt-table-wrapper" style="max-height:500px;overflow-x:auto;">
+        <table class="qt-table" style="min-width:1000px;">
+            <thead><tr>{gn_header}</tr></thead>
+            <tbody>{gn_rows}</tbody>
+        </table></div>'''
+        st.markdown(gn_html, unsafe_allow_html=True)
+
+        # ── BIỂU ĐỒ (đã chuyển xuống cuối) ──
         if HAS_PLOTLY:
             st.markdown('<p class="section-title">📈 Biểu đồ trực quan</p>',unsafe_allow_html=True)
             ch1,ch2=st.columns(2)
@@ -338,42 +452,6 @@ if page=="📊 Tổng quan":
                         paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
                         font=dict(color='white',size=12),height=380,margin=dict(t=40,b=20,l=20,r=20))
                     st.plotly_chart(fig2,width='stretch',key='bar1')
-
-        # Table
-        st.markdown('<p class="section-title">📋 Bảng số liệu chi tiết</p>',unsafe_allow_html=True)
-        dcols=['Mã CT','Tên công trình','Trạng thái','Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']
-        dcols=[c for c in dcols if c in df_th.columns]
-        dd=df_th[dcols].copy()
-        if 'Tên công trình' in dd.columns:
-            dd['Tên công trình'] = dd['Tên công trình'].apply(shorten_name)
-        for c in ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']:
-            if c in dd.columns:
-                dd[c]=dd[c].fillna(0).astype(int)
-        
-        # Build custom HTML table for overview
-        num_cols = ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']
-        overview_header = ''
-        for col_name in dcols:
-            overview_header += f'<th>{col_name}</th>'
-        overview_rows = ''
-        for _, r in dd.iterrows():
-            overview_rows += '<tr>'
-            for col_name in dcols:
-                val = r.get(col_name, '')
-                if col_name in num_cols:
-                    overview_rows += f'<td class="col-num">{fmt_full(val)}</td>'
-                elif col_name == 'Mã CT':
-                    overview_rows += f'<td class="col-stt">{val}</td>'
-                else:
-                    overview_rows += f'<td class="col-ten">{val}</td>'
-            overview_rows += '</tr>\n'
-        
-        overview_table_html = f'''<div class="qt-table-wrapper" style="max-height:500px;">
-        <table class="qt-table">
-            <thead><tr>{overview_header}</tr></thead>
-            <tbody>{overview_rows}</tbody>
-        </table></div>'''
-        st.markdown(overview_table_html, unsafe_allow_html=True)
 
 
 
