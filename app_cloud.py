@@ -7,7 +7,7 @@ from form_module import load_db_data
 from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot)
-from github_helper import gh_list_files, gh_upload_file, gh_delete_file, has_token
+from github_helper import gh_list_files, gh_upload_file, gh_delete_file, has_token, gh_upload_root_file
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
@@ -293,6 +293,44 @@ if page=="📊 Tổng quan":
                 (c3,"TỔNG THỰC HIỆN",fmt_money(total_th)),
                 (c4,"TỶ LỆ GIẢI NGÂN",f"{ty_le:.1f}%")]:
                 col.markdown(f'<div class="metric-card"><div class="metric-label">{lbl}</div><div class="metric-val">{val}</div></div>',unsafe_allow_html=True)
+
+        # ── CẬP NHẬT DỮ LIỆU NHANH ──
+        with st.expander("📤 Cập nhật dữ liệu báo cáo (CapNhatTienDo.xlsx / PM_092.xlsx)", expanded=False):
+            up_col1, up_col2 = st.columns(2)
+            with up_col1:
+                st.markdown('**📋 File Tiến độ** (`CapNhatTienDo.xlsx`)')
+                up_tiendo = st.file_uploader(
+                    "Chọn file CapNhatTienDo.xlsx mới",
+                    type=['xlsx','xls'],
+                    key='up_capnhat_td',
+                    label_visibility='collapsed'
+                )
+                if up_tiendo:
+                    with st.spinner("Đang cập nhật CapNhatTienDo.xlsx..."):
+                        ok = gh_upload_root_file('CapNhatTienDo.xlsx', up_tiendo.getvalue())
+                    if ok:
+                        st.success("✅ Đã cập nhật CapNhatTienDo.xlsx thành công!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("❌ Lỗi khi cập nhật. Kiểm tra GitHub Token.")
+            with up_col2:
+                st.markdown('**💰 File PM_092** (`PM_092.xlsx`)')
+                up_pm092 = st.file_uploader(
+                    "Chọn file PM_092.xlsx mới",
+                    type=['xlsx','xls'],
+                    key='up_pm092',
+                    label_visibility='collapsed'
+                )
+                if up_pm092:
+                    with st.spinner("Đang cập nhật PM_092.xlsx..."):
+                        ok = gh_upload_root_file('PM_092.xlsx', up_pm092.getvalue())
+                    if ok:
+                        st.success("✅ Đã cập nhật PM_092.xlsx thành công!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("❌ Lỗi khi cập nhật. Kiểm tra GitHub Token.")
 
         # Health analysis
         now=datetime.datetime.now();cy,cm=now.year,now.month
