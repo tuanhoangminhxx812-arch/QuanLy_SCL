@@ -273,10 +273,18 @@ if page=="📊 Tổng quan":
     if df_th.empty:
         st.warning("Chưa có dữ liệu Tổng hợp.xlsx")
     else:
-        total_ct=len(df_th)
-        total_kh=int(df_th['Khái toán'].fillna(0).sum()) if 'Khái toán' in df_th.columns else 0
-        total_th=int(df_th['Thực hiện'].fillna(0).sum()) if 'Thực hiện' in df_th.columns else 0
-        ty_le=(total_th/total_kh*100) if total_kh>0 else 0
+        df_td = load_capnhat_tiendo()
+        pm_monthly_all = load_pm092_monthly()
+        
+        if not df_td.empty:
+            total_ct = len(df_td)
+            total_kh = int(df_td['Khái toán'].fillna(0).sum()) if 'Khái toán' in df_td.columns else 0
+        else:
+            total_ct = len(df_th)
+            total_kh = int(df_th['Khái toán'].fillna(0).sum()) if 'Khái toán' in df_th.columns else 0
+            
+        total_th = sum(sum(m_data.values()) for m_data in pm_monthly_all.values())
+        ty_le = (total_th/total_kh*100) if total_kh>0 else 0
 
         with header_container:
             c1,c2,c3,c4=st.columns(4)
@@ -314,7 +322,7 @@ if page=="📊 Tổng quan":
 
         # ── BẢNG A: CẬP NHẬT TIẾN ĐỘ ──
         st.markdown('<p class="section-title">📋 Cập nhật tiến độ thực hiện SCL</p>',unsafe_allow_html=True)
-        df_td = load_capnhat_tiendo()
+        # df_td was already loaded above
         if not df_td.empty:
             status_badges = {
                 'Đang thi công': '#22c55e',
@@ -372,7 +380,7 @@ if page=="📊 Tổng quan":
 
         # ── BẢNG B: GIẢI NGÂN THEO THÁNG ──
         st.markdown('<p class="section-title">💰 Giải ngân theo tháng (6 tháng đầu năm)</p>',unsafe_allow_html=True)
-        pm_monthly = load_pm092_monthly()
+        pm_monthly = pm_monthly_all # Already loaded above
         months = [1,2,3,4,5,6]
         month_labels = ['T1','T2','T3','T4','T5','T6']
         
@@ -431,8 +439,10 @@ if page=="📊 Tổng quan":
             st.markdown('<p class="section-title">📈 Biểu đồ trực quan</p>',unsafe_allow_html=True)
             ch1,ch2=st.columns(2)
             with ch1:
-                if 'Trạng thái' in df_th.columns:
-                    sc=df_th['Trạng thái'].fillna('Chưa XĐ').value_counts()
+                # Use df_td for charts if available
+                df_chart = df_td if not df_td.empty else df_th
+                if 'Trạng thái' in df_chart.columns:
+                    sc=df_chart['Trạng thái'].fillna('Chưa XĐ').value_counts()
                     cm2={s:status_color(s) for s in sc.index}
                     fig1=px.pie(values=sc.values,names=sc.index,title="Tỷ trọng trạng thái",
                         color=sc.index,color_discrete_map=cm2,hole=0.4)
@@ -441,13 +451,20 @@ if page=="📊 Tổng quan":
                     fig1.update_traces(textposition='outside',textinfo='percent+label',textfont_size=11)
                     st.plotly_chart(fig1,width='stretch',key='pie1')
             with ch2:
-                if 'Khái toán' in df_th.columns:
-                    top=df_th.nlargest(5,'Khái toán').copy()
+                if 'Khái toán' in df_chart.columns:
+                    top=df_chart.nlargest(5,'Khái toán').copy()
                     top['KT']=top['Khái toán'].fillna(0)/1e9
-                    top['TH']=top['Thực hiện'].fillna(0)/1e9 if 'Thực hiện' in top.columns else 0
+                    
+                    # Calculate TH from pm_monthly_all for these top projects
+                    th_values = []
+                    for ma in top['Mã CT'] if 'Mã CT' in top.columns else []:
+                        val = sum(pm_monthly_all.get(str(ma).strip(), {}).values())
+                        th_values.append(val/1e9)
+                    top['TH'] = th_values
+                    
                     fig2=go.Figure()
-                    fig2.add_trace(go.Bar(name='Khái toán (Tỷ)',x=top['Mã CT'],y=top['KT'],marker_color='#6366f1'))
-                    fig2.add_trace(go.Bar(name='Thực hiện (Tỷ)',x=top['Mã CT'],y=top['TH'],marker_color='#f59e0b'))
+                    fig2.add_trace(go.Bar(name='Khái toán (Tỷ)',x=top['Mã CT'] if 'Mã CT' in top.columns else top.index,y=top['KT'],marker_color='#6366f1'))
+                    fig2.add_trace(go.Bar(name='Thực hiện (Tỷ)',x=top['Mã CT'] if 'Mã CT' in top.columns else top.index,y=top['TH'],marker_color='#f59e0b'))
                     fig2.update_layout(title="Top 5 ngân sách",barmode='group',
                         paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
                         font=dict(color='white',size=12),height=380,margin=dict(t=40,b=20,l=20,r=20))
