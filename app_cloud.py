@@ -71,14 +71,16 @@ html,body,.stApp{font-family:'Inter',sans-serif}
     font-weight: 700;
     letter-spacing: 1px;
 }
+/* Sticky header: pin the header container when scrolling */
 div[data-testid="stVerticalBlock"]:has(.header-content-wrapper) {
     position: sticky !important;
-    top: 2.875rem !important;
+    top: 0 !important;
     z-index: 999 !important;
     background-color: white !important;
-    padding: 15px 0 10px 0;
+    padding: 10px 0 10px 0;
     margin-top: -15px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 2px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 .metric-card{background:linear-gradient(135deg,#1565C0,#1E88E5);border-radius:14px;
 padding:20px 16px;text-align:center;border:1px solid rgba(255,255,255,.2);
@@ -104,6 +106,24 @@ div[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden}
 .doc-card-title{font-weight:700;color:#1565C0;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
 .doc-card-sub{font-size:12px;color:#64748b;margin-bottom:8px;}
 .doc-file-chip{display:inline-flex;align-items:center;gap:5px;background:#e0edff;color:#1565C0;border-radius:20px;padding:3px 10px;font-size:12px;margin:2px;}
+/* Custom HTML table for Bảng tổng hợp QT */
+.qt-table{width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;font-size:14px;margin-top:8px;}
+.qt-table thead th{
+    background:linear-gradient(135deg,#1565C0,#1976D2);color:#fff;font-weight:600;
+    padding:12px 14px;text-align:center;border:1px solid #1255a0;
+    position:sticky;top:0;z-index:10;font-size:13px;letter-spacing:0.3px;
+}
+.qt-table tbody td{
+    padding:9px 14px;border:1px solid #e2e8f0;vertical-align:middle;
+}
+.qt-table tbody tr:nth-child(even){background:#f8fafc;}
+.qt-table tbody tr:hover{background:#e8f0fe;}
+.qt-table .col-stt{width:60px;text-align:center;font-weight:600;color:#1565C0;white-space:nowrap;}
+.qt-table .col-ten{text-align:left;min-width:250px;}
+.qt-table .col-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:140px;}
+.qt-table .row-header td{font-weight:700;background:#eef2ff !important;}
+.qt-table .row-total td{font-weight:700;background:#dbeafe !important;border-top:2px solid #1565C0;}
+.qt-table-wrapper{max-height:700px;overflow-y:auto;border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
 </style>""", unsafe_allow_html=True)
 
 # ── Helpers ──
@@ -330,11 +350,30 @@ if page=="📊 Tổng quan":
             if c in dd.columns:
                 dd[c]=dd[c].fillna(0).astype(int)
         
-        dd_disp = dd.copy()
-        for c in ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']:
-            if c in dd_disp.columns:
-                dd_disp[c] = dd_disp[c].apply(fmt_full)
-        st.dataframe(dd_disp,hide_index=True,width='stretch')
+        # Build custom HTML table for overview
+        num_cols = ['Khái toán','Giá trị HĐ','Thực hiện','Quyết toán']
+        overview_header = ''
+        for col_name in dcols:
+            overview_header += f'<th>{col_name}</th>'
+        overview_rows = ''
+        for _, r in dd.iterrows():
+            overview_rows += '<tr>'
+            for col_name in dcols:
+                val = r.get(col_name, '')
+                if col_name in num_cols:
+                    overview_rows += f'<td class="col-num">{fmt_full(val)}</td>'
+                elif col_name == 'Mã CT':
+                    overview_rows += f'<td class="col-stt">{val}</td>'
+                else:
+                    overview_rows += f'<td class="col-ten">{val}</td>'
+            overview_rows += '</tr>\n'
+        
+        overview_table_html = f'''<div class="qt-table-wrapper" style="max-height:500px;">
+        <table class="qt-table">
+            <thead><tr>{overview_header}</tr></thead>
+            <tbody>{overview_rows}</tbody>
+        </table></div>'''
+        st.markdown(overview_table_html, unsafe_allow_html=True)
 
 
 
@@ -366,8 +405,24 @@ elif page=="📁 Dữ liệu đầu vào":
 
         # Kiểm tra token
         if not has_token():
-            st.warning("⚠️ Chưa cài đặt GITHUB_TOKEN trong Streamlit Secrets. Liên hệ quản trị để cấu hình.")
+            st.error("⚠️ **Chưa cấu hình GitHub Token!**")
+            st.info("""
+**Hướng dẫn cấu hình:**
+1. Vào GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Tạo token mới, chọn quyền **repo** (toàn bộ)
+3. Copy token và dán vào file `.streamlit/secrets.toml`:
+```
+GITHUB_TOKEN = "ghp_your_actual_token_here"
+```
+4. Restart lại ứng dụng Streamlit
+            """)
         else:
+            # Lấy tất cả file cho công trình này 1 lần (cached)
+            all_files_cache = {}
+            with st.spinner(f"🔄 Đang tải dữ liệu từ GitHub cho {ma_dli}..."):
+                for _, dt_name in DOC_TYPES:
+                    all_files_cache[dt_name] = gh_list_files(ma_dli, dt_name)
+            
             # Hiển thị 9 loại tài liệu theo lưới 3 cột
             cols_per_row = 3
             for row_idx in range(0, len(DOC_TYPES), cols_per_row):
@@ -375,14 +430,15 @@ elif page=="📁 Dữ liệu đầu vào":
                 grid_cols = st.columns(cols_per_row)
                 for col_idx, (icon, dt_name) in enumerate(row_types):
                     with grid_cols[col_idx]:
+                        existing_files = all_files_cache.get(dt_name, [])
+                        file_count = len(existing_files)
+                        count_badge = f' <span style="background:#22c55e;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;">{file_count}</span>' if file_count > 0 else ' <span style="background:#94a3b8;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;">0</span>'
+                        
                         st.markdown(f"""
                         <div class="doc-card">
-                            <div class="doc-card-title">{icon} {dt_name}</div>
+                            <div class="doc-card-title">{icon} {dt_name}{count_badge}</div>
                         </div>
                         """, unsafe_allow_html=True)
-
-                        # Lấy danh sách file hiện có trên GitHub
-                        existing_files = gh_list_files(ma_dli, dt_name)
 
                         # Hiển thị file hiện có
                         if existing_files:
@@ -432,10 +488,45 @@ elif page=="📋 Bảng tổng hợp QT":
                 sub[c]=pd.to_numeric(sub[c],errors='coerce').fillna(0).astype(int)
             sub['Chênh lệch']=sub['Giá trị Dự toán']-sub['Giá trị QT']
             
-            sub_disp = sub.copy()
-            for c in ['Giá trị Dự toán','Giá trị QT','Chênh lệch']:
-                sub_disp[c] = sub_disp[c].apply(fmt_full)
-            st.dataframe(sub_disp,hide_index=True,width='stretch',height=800)
+            # Xác định dòng header (A, B, C, D, E, F, SCL) và dòng tổng
+            header_stts = {'A','B','C','D','E','F','SCL'}
+            total_stts = {'E','SCL'}
+            
+            # Build custom HTML table
+            html_rows = ''
+            for _, r in sub.iterrows():
+                stt_val = str(r['STT']).strip()
+                ten_hm = str(r['Tên Hạng mục']) if pd.notna(r['Tên Hạng mục']) else ''
+                dt_val = fmt_full(r['Giá trị Dự toán'])
+                qt_val = fmt_full(r['Giá trị QT'])
+                cl_val = fmt_full(r['Chênh lệch'])
+                
+                row_class = ''
+                if stt_val.upper() in total_stts:
+                    row_class = ' class="row-total"'
+                elif stt_val.upper() in header_stts:
+                    row_class = ' class="row-header"'
+                
+                html_rows += f'''<tr{row_class}>
+                    <td class="col-stt">{stt_val}</td>
+                    <td class="col-ten">{ten_hm}</td>
+                    <td class="col-num">{dt_val}</td>
+                    <td class="col-num">{qt_val}</td>
+                    <td class="col-num">{cl_val}</td>
+                </tr>\n'''
+            
+            table_html = f'''<div class="qt-table-wrapper">
+            <table class="qt-table">
+                <thead><tr>
+                    <th>STT</th>
+                    <th>Tên Hạng mục</th>
+                    <th>Giá trị Dự toán</th>
+                    <th>Giá trị QT</th>
+                    <th>Chênh lệch</th>
+                </tr></thead>
+                <tbody>{html_rows}</tbody>
+            </table></div>'''
+            st.markdown(table_html, unsafe_allow_html=True)
 
             # Xuất Excel
             buf=BytesIO()
