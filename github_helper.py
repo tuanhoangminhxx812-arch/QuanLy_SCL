@@ -168,6 +168,39 @@ def gh_delete_file(path: str, sha: str) -> bool:
         return False
 
 
+def gh_upload_root_file(filename: str, content_bytes: bytes) -> bool:
+    """Upload hoặc cập nhật file ở thư mục gốc repo (CapNhatTienDo.xlsx, PM_092.xlsx, v.v.).
+    Trả về True nếu thành công.
+    """
+    if not _is_valid_token():
+        return False
+
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}"
+
+    # Lấy SHA nếu file đã tồn tại
+    sha = None
+    try:
+        r = requests.get(url, headers=_headers(), params={"ref": GITHUB_BRANCH}, timeout=5)
+        if r.status_code == 200:
+            sha = r.json().get("sha")
+    except Exception:
+        pass
+
+    payload = {
+        "message": f"Cập nhật {filename}",
+        "content": base64.b64encode(content_bytes).decode(),
+        "branch": GITHUB_BRANCH,
+    }
+    if sha:
+        payload["sha"] = sha
+
+    try:
+        r = requests.put(url, headers=_headers(), json=payload, timeout=30)
+        return r.status_code in [200, 201]
+    except Exception:
+        return False
+
+
 def has_token() -> bool:
     """Kiểm tra xem GitHub Token đã được cài đặt và hợp lệ chưa."""
     return _is_valid_token()
