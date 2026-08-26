@@ -7,7 +7,7 @@ from form_module import load_db_data
 from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot)
-from github_helper import gh_list_files, gh_upload_file, gh_delete_file, has_token
+from github_helper import gh_list_files, gh_upload_file, gh_delete_file, gh_upload_root_file, has_token
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
@@ -203,30 +203,6 @@ def analyze_health(row,cy,cm):
     return "Bình thường","🔵","Tiến độ BT", r
 
 # ── Load data ──
-# Hàm upload trực tiếp (đặt ở đây để tránh lỗi cache module của Streamlit Cloud)
-def gh_upload_root_file(filename: str, content_bytes: bytes) -> bool:
-    import base64, requests
-    if not has_token(): return False
-    token = st.secrets.get("GITHUB_TOKEN", "")
-    if isinstance(token, dict): token = token.get("GITHUB_TOKEN", "")
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-    url = f"https://api.github.com/repos/tuanhoangminhxx812-arch/QuanLy_SCL/contents/{filename}"
-    sha = None
-    try:
-        r = requests.get(url, headers=headers, params={"ref": "main"}, timeout=5)
-        if r.status_code == 200: sha = r.json().get("sha")
-    except: pass
-    payload = {
-        "message": f"Cập nhật {filename}",
-        "content": base64.b64encode(content_bytes).decode(),
-        "branch": "main",
-    }
-    if sha: payload["sha"] = sha
-    try:
-        r = requests.put(url, headers=headers, json=payload, timeout=30)
-        return r.status_code in [200, 201]
-    except: return False
-
 @st.cache_data(ttl=300)
 def load_all():
     df=load_tonghop();pm=load_pm092();hd=load_gia_tri_hop_dong()
@@ -337,7 +313,7 @@ if page=="📊 Tổng quan":
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error("❌ Lỗi khi cập nhật. Kiểm tra GitHub Token.")
+                        st.error("❌ Lỗi khi cập nhật file.")
             with up_col2:
                 st.markdown('**💰 File PM_092** (`PM_092.xlsx`)')
                 up_pm092 = st.file_uploader(
@@ -354,7 +330,7 @@ if page=="📊 Tổng quan":
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error("❌ Lỗi khi cập nhật. Kiểm tra GitHub Token.")
+                        st.error("❌ Lỗi khi cập nhật file.")
 
         # Health analysis
         now=datetime.datetime.now();cy,cm=now.year,now.month
@@ -560,77 +536,101 @@ elif page=="📁 Dữ liệu đầu vào":
         ma_dli = sel_dli.split(" - ")[0].strip()
         st.markdown(f'<p class="page-title">📁 Dữ liệu đầu vào — {ma_dli}</p>', unsafe_allow_html=True)
 
-        # Kiểm tra token
-        if not has_token():
-            st.error("⚠️ **Chưa cấu hình GitHub Token!**")
-            st.info("""
-**Hướng dẫn cấu hình:**
-1. Vào GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Tạo token mới, chọn quyền **repo** (toàn bộ)
-3. Copy token và dán vào file `.streamlit/secrets.toml`:
-```
-GITHUB_TOKEN = "ghp_your_actual_token_here"
-```
-4. Restart lại ứng dụng Streamlit
-            """)
+        # Thông báo trạng thái lưu trữ & hướng dẫn GitHub Desktop
+        if has_token():
+            st.success("☁️ **Chế độ lưu trữ:** Kết nối trực tiếp **GitHub Cloud API** & **Thư mục cục bộ**")
         else:
-            # Lấy tất cả file cho công trình này 1 lần (cached)
-            all_files_cache = {}
-            with st.spinner(f"🔄 Đang tải dữ liệu từ GitHub cho {ma_dli}..."):
-                for _, dt_name in DOC_TYPES:
-                    all_files_cache[dt_name] = gh_list_files(ma_dli, dt_name)
-            
-            # Hiển thị 9 loại tài liệu theo lưới 3 cột
-            cols_per_row = 3
-            for row_idx in range(0, len(DOC_TYPES), cols_per_row):
-                row_types = DOC_TYPES[row_idx:row_idx + cols_per_row]
-                grid_cols = st.columns(cols_per_row)
-                for col_idx, (icon, dt_name) in enumerate(row_types):
-                    with grid_cols[col_idx]:
-                        existing_files = all_files_cache.get(dt_name, [])
-                        file_count = len(existing_files)
-                        count_badge = f' <span style="background:#22c55e;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;">{file_count}</span>' if file_count > 0 else ' <span style="background:#94a3b8;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;">0</span>'
-                        
-                        st.markdown(f"""
-                        <div class="doc-card">
-                            <div class="doc-card-title">{icon} {dt_name}{count_badge}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+            with st.expander("💻 **Chế độ: Lưu trữ Cục bộ (Đồng bộ qua GitHub Desktop)** — *Nhấn để xem hướng dẫn*", expanded=False):
+                st.markdown(f"""
+                - **Lưu trữ tự động:** Mọi file tải lên sẽ được lưu trực tiếp vào thư mục `data/dau_vao/{ma_dli}/...` trên máy tính.
+                - **Đồng bộ lên GitHub bằng GitHub Desktop:**
+                  1. Mở ứng dụng **GitHub Desktop** trên máy tính.
+                  2. Ứng dụng sẽ tự động hiện danh sách các file mới tải lên ở mục **Changes**.
+                  3. Nhập tiêu đề commit (vd: *Cập nhật hồ sơ {ma_dli}*) và bấm **Commit to main**.
+                  4. Bấm **Push origin** để đồng bộ lên GitHub.
+                """)
 
-                        # Hiển thị file hiện có
-                        if existing_files:
-                            for ef in existing_files:
-                                fc1, fc2 = st.columns([5, 1])
-                                fc1.markdown(
-                                    f'✅ <a href="{ef["download_url"]}" target="_blank" '
-                                    f'style="color:#1565C0;font-size:13px;">{ef["name"]}</a>',
-                                    unsafe_allow_html=True
-                                )
-                                if fc2.button("🗑️", key=f"del_{ma_dli}_{row_idx}_{col_idx}_{ef['sha'][:6]}",
-                                              help=f"Xóa {ef['name']}"):
-                                    if gh_delete_file(ef['path'], ef['sha']):
-                                        st.success(f"Đã xóa: {ef['name']}")
+        # Lấy tất cả file cho công trình này 1 lần
+        all_files_cache = {}
+        with st.spinner(f"🔄 Đang tải danh sách tài liệu cho {ma_dli}..."):
+            for _, dt_name in DOC_TYPES:
+                all_files_cache[dt_name] = gh_list_files(ma_dli, dt_name)
+        
+        # Hiển thị 9 loại tài liệu theo lưới 3 cột
+        cols_per_row = 3
+        for row_idx in range(0, len(DOC_TYPES), cols_per_row):
+            row_types = DOC_TYPES[row_idx:row_idx + cols_per_row]
+            grid_cols = st.columns(cols_per_row)
+            for col_idx, (icon, dt_name) in enumerate(row_types):
+                with grid_cols[col_idx]:
+                    existing_files = all_files_cache.get(dt_name, [])
+                    file_count = len(existing_files)
+                    count_badge = f' <span style="background:#22c55e;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;">{file_count}</span>' if file_count > 0 else ' <span style="background:#94a3b8;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;">0</span>'
+                    
+                    st.markdown(f"""
+                    <div class="doc-card">
+                        <div class="doc-card-title">{icon} {dt_name}{count_badge}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Hiển thị file hiện có
+                    if existing_files:
+                        for f_idx, ef in enumerate(existing_files):
+                            fc1, fc2 = st.columns([5, 1])
+                            fname = ef["name"]
+                            loc_path = ef.get("local_path", "")
+                            fbytes = None
+                            if loc_path and os.path.exists(loc_path):
+                                try:
+                                    with open(loc_path, "rb") as f_in:
+                                        fbytes = f_in.read()
+                                except Exception:
+                                    pass
+                            
+                            with fc1:
+                                if fbytes is not None:
+                                    st.download_button(
+                                        label=f"📥 {fname}",
+                                        data=fbytes,
+                                        file_name=fname,
+                                        key=f"dl_{ma_dli}_{row_idx}_{col_idx}_{f_idx}",
+                                        help=f"Tải về {fname}"
+                                    )
+                                elif ef.get("download_url"):
+                                    st.markdown(
+                                        f'✅ <a href="{ef["download_url"]}" target="_blank" '
+                                        f'style="color:#1565C0;font-size:13px;text-decoration:none;">📄 {fname}</a>',
+                                        unsafe_allow_html=True
+                                    )
+                                else:
+                                    st.markdown(f"📄 {fname}")
+                            
+                            with fc2:
+                                if st.button("🗑️", key=f"del_{ma_dli}_{row_idx}_{col_idx}_{f_idx}_{ef.get('sha','')[:6]}",
+                                              help=f"Xóa {fname}"):
+                                    if gh_delete_file(ef.get('path', ''), ef.get('sha', ''), ma_dli, dt_name, fname):
+                                        st.success(f"Đã xóa: {fname}")
                                         st.rerun()
                                     else:
                                         st.error("Xóa thất bại!")
 
-                        # Nút upload
-                        uploaded = st.file_uploader(
-                            label=f"Tải lên - {dt_name}",
-                            accept_multiple_files=True,
-                            type=['pdf','docx','doc','xlsx','xls','png','jpg','jpeg'],
-                            key=f"up_{ma_dli}_{row_idx}_{col_idx}",
-                            label_visibility="collapsed"
-                        )
-                        if uploaded:
-                            for uf in uploaded:
-                                with st.spinner(f"Đang lưu '{uf.name}' lên GitHub..."):
-                                    ok = gh_upload_file(ma_dli, dt_name, uf.name, uf.getvalue())
-                                if ok:
-                                    st.success(f"✅ Đã lưu: {uf.name}")
-                                else:
-                                    st.error(f"❌ Lỗi khi lưu: {uf.name}")
-                            st.rerun()
+                    # Nút upload
+                    uploaded = st.file_uploader(
+                        label=f"Tải lên - {dt_name}",
+                        accept_multiple_files=True,
+                        type=['pdf','docx','doc','xlsx','xls','png','jpg','jpeg'],
+                        key=f"up_{ma_dli}_{row_idx}_{col_idx}",
+                        label_visibility="collapsed"
+                    )
+                    if uploaded:
+                        for uf in uploaded:
+                            with st.spinner(f"Đang lưu '{uf.name}'..."):
+                                ok = gh_upload_file(ma_dli, dt_name, uf.name, uf.getvalue())
+                            if ok:
+                                st.success(f"✅ Đã lưu: {uf.name}")
+                            else:
+                                st.error(f"❌ Lỗi khi lưu: {uf.name}")
+                        st.rerun()
 
 # ── PAGE 2: BẢNG TỔNG HỢP QT ──
 elif page=="📋 Bảng tổng hợp QT":
