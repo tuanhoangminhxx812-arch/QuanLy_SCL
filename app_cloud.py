@@ -12,6 +12,15 @@ from github_helper import gh_list_files, gh_upload_file, gh_delete_file, gh_uplo
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def render_a4_html(html_str):
+    """Render HTML sạch sẽ, loại bỏ mọi thụt dòng thừa để markdown hiển thị 100% văn bản chuẩn, không bị nhảy khối code."""
+    clean_lines = [line.strip() for line in html_str.strip().split('\n')]
+    clean_html = '\n'.join(clean_lines)
+    st.markdown(clean_html, unsafe_allow_html=True)
+
 try:
     import plotly.express as px
     import plotly.graph_objects as go
