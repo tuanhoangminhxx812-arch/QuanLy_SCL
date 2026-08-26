@@ -1,7 +1,9 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import os, re, datetime
 from io import BytesIO
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from data_helpers import load_tonghop, load_pm092, load_gia_tri_hop_dong, load_capnhat_tiendo, load_pm092_monthly
 from form_module import load_db_data, doc_so_vn
 from cloud_export import (get_project_section, get_cost_breakdown,
@@ -11,15 +13,6 @@ from cloud_export import (get_project_section, get_cost_breakdown,
 from github_helper import gh_list_files, gh_upload_file, gh_delete_file, gh_upload_root_file, has_token
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-def render_a4_html(html_str):
-    """Render HTML sạch sẽ, loại bỏ mọi thụt dòng thừa để markdown hiển thị 100% văn bản chuẩn, không bị nhảy khối code."""
-    clean_lines = [line.strip() for line in html_str.strip().split('\n')]
-    clean_html = '\n'.join(clean_lines)
-    st.markdown(clean_html, unsafe_allow_html=True)
 
 try:
     import plotly.express as px
@@ -184,10 +177,26 @@ def fmt_full(v):
         return s.replace(',', 'X').replace('.', ',').replace('X', '.')
     except:return "0"
 
+# ── Helper: wrap HTML preview với full CSS để components.html render đúng ──
+A4_CSS = """
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:12px;background:#f0f2f6;font-family:'Times New Roman',serif;font-size:13pt;color:#000}
+.a4-preview{background:#ffffff;border:1px solid #d0d0d0;padding:2cm 2.5cm;
+ max-width:210mm;margin:0 auto;line-height:1.6;box-shadow:0 2px 20px rgba(0,0,0,.18);border-radius:2px;}
+.a4-preview p{margin:0 0 4pt 0;text-align:justify;}
+.a4-preview table{width:100%;border-collapse:collapse;margin:8pt 0;}
+.a4-preview td,.a4-preview th{padding:5pt;vertical-align:top;}
+</style>
+"""
+def wrap_preview_html(body_html):
+    return f"<!DOCTYPE html><html><head><meta charset='utf-8'>{A4_CSS}</head><body>{body_html}</body></html>"
+
 def status_color(s):
     m={'Đang thi công':'#22c55e','Lập PAKT-Tổng dự toán':'#f59e0b',
        'Lập kế hoạch đấu thầu':'#3b82f6','Hoàn thành':'#8b5cf6','Nghiệm thu':'#06b6d4'}
     return m.get(str(s).strip(),'#94a3b8')
+
 
 def parse_date_from_text(text, prefix):
     m=re.search(fr"{prefix}:\s*(\d{{1,2}})/(\d{{4}})",str(text),re.IGNORECASE)
@@ -771,7 +780,7 @@ elif page=="📝 Tờ trình duyệt QT":
         safe=clean_filename(ten)
         st.markdown(create_download_link(data_ttr, f"TTr_Duyet_QT_{safe}.docx", "📥 Xuất Word - Tờ trình duyệt QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
-        st.markdown(preview_html,unsafe_allow_html=True)
+        components.html(wrap_preview_html(preview_html), height=700, scrolling=True)
 
 # ── PAGE 3: TMQT ──
 elif page=="📄 Thuyết minh QT":
@@ -870,7 +879,7 @@ elif page=="📄 Thuyết minh QT":
         safe=clean_filename(ten)
         st.markdown(create_download_link(data, f"TMQT_{safe}.docx", "📥 Xuất Word - Thuyết minh QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
-        st.markdown(preview_html,unsafe_allow_html=True)
+        components.html(wrap_preview_html(preview_html), height=900, scrolling=True)
 
 # ── PAGE 4: PHIẾU THẨM TRA ──
 elif page=="🔍 Phiếu thẩm tra":
@@ -936,7 +945,7 @@ elif page=="🔍 Phiếu thẩm tra":
         safe=clean_filename(ten)
         st.markdown(create_download_link(data, f"Phieu_tham_tra_{safe}.docx", "📥 Xuất Word - Phiếu thẩm tra QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
-        st.markdown(preview_html,unsafe_allow_html=True)
+        components.html(wrap_preview_html(preview_html), height=700, scrolling=True)
 
 # ── PAGE 5: BÁO CÁO THẨM TRA (KHỚP Y CHANG THAM KHẢO) ──
 elif page=="📜 Báo cáo thẩm tra":
@@ -1060,7 +1069,7 @@ elif page=="📜 Báo cáo thẩm tra":
         safe=clean_filename(ten)
         st.markdown(create_download_link(data_bc, f"BC_tham_tra_{safe}.docx", "📥 Xuất Word - Báo cáo thẩm tra", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
-        st.markdown(preview5a,unsafe_allow_html=True)
+        components.html(wrap_preview_html(preview5a), height=900, scrolling=True)
 
 # ── PAGE 6: QUYẾT ĐỊNH PHÊ DUYỆT (KHỚP Y CHANG THAM KHẢO) ──
 elif page=="📜 Quyết định phê duyệt":
@@ -1163,5 +1172,5 @@ elif page=="📜 Quyết định phê duyệt":
         safe=clean_filename(ten)
         st.markdown(create_download_link(data_qd, f"QD_phe_duyet_{safe}.docx", "📥 Xuất Word - QĐ phê duyệt QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
-        st.markdown(preview5b,unsafe_allow_html=True)
+        components.html(wrap_preview_html(preview5b), height=900, scrolling=True)
 
