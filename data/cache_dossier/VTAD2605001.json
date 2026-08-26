@@ -1,0 +1,155 @@
+{
+  "success": true,
+  "message": "Đã quét và cập nhật thành công dữ liệu từ thư mục hồ sơ cho VTAD2605001! (Đã tạo bản sao lưu tại data/backups/)",
+  "folder": "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026",
+  "scanned_files": [
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\a) Biên bản khảo sát và đánh giá chi tiết hiện trạng VTTB, công trình\\02.03.2026 Cung cap số liệu lập PA SCL Sơn số trụ.pdf",
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\c) PAKT-DT công trình được phê duyệt\\Phòng Kế hoạch vật tư.pdf",
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\c) PAKT-DT công trình được phê duyệt\\QDPD PAKT-DT SCL LUOI DIEN 2026.pdf",
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\e) Các hợp đồng, phụ lục hợp đồng (nếu có), các bảo lãnh theo qui định\\11-2026-HDXL_SCL Luoi tram 2026.pdf",
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\đ) Kế hoạch lựa chọn nhà thầu, hồ sơ mời thầu, kết quả lựa chọn nhà thầu được phê duyệt\\1292-TCT Trao hop dong Goi xay lap SCL Trung HT TBA 2026.pdf",
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\đ) Kế hoạch lựa chọn nhà thầu, hồ sơ mời thầu, kết quả lựa chọn nhà thầu được phê duyệt\\524_QĐPD_KHLCNT TU VAN SCL 2026 LUOI DIEN.pdf",
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\đ) Kế hoạch lựa chọn nhà thầu, hồ sơ mời thầu, kết quả lựa chọn nhà thầu được phê duyệt\\90_QĐPD KQLCNT_TV.SCL THT và TBA.pdf",
+    "D:\\QuanLy_SCL\\Ho_so_cong_trinh\\Sửa chữa lớn đường dây trung, hạ thế và trạm biến áp năm 2026\\đ) Kế hoạch lựa chọn nhà thầu, hồ sơ mời thầu, kết quả lựa chọn nhà thầu được phê duyệt\\QĐPD_KHLCNT XÂY LAP SCL 2026 LUOI DIEN.pdf"
+  ],
+  "dt_data": {
+    "found": true,
+    "so_qd": "2026",
+    "ngay_qd": "06/03/2026",
+    "tong_dt": 12552889759,
+    "chi_phi_vttb": 10205102362,
+    "chi_phi_sua_chua": 12552889759,
+    "chi_phi_khac": 804995396,
+    "chi_phi_du_phong": 597756655,
+    "chi_phi_thu_hoi": 398483278,
+    "can_cu": [
+      "Căn cứ Quyết định số 132/QĐ-HĐTV ngày 12/7/2025 của Hội đồng thành viên",
+      "Căn cứ Quyết định số 2589/QĐ-EVNHCMC ngày 30/5/2025 của Tổng công ty",
+      "Căn cứ Quyết định số 905/QĐ-Tập đoàn Điện lực Việt Nam ngày 17/6/2025 của",
+      "Căn cứ Quyết định số 3706/QĐ-Tổng công ty Điện lực TP.HCM ngày 21/7/2025",
+      "Căn cứ Quyết định số 202/QĐ-HĐTV ngày 31/12/2025 của Hội đồng thành viên",
+      "Căn cứ Quyết định số 435/QĐ- EVNHCMC ngày 21/01/2026 của Tổng công ty",
+      "Căn cứ Quyết định số 5677/QĐ- EVNHCMC ngày 31/10/2025 của Tổng công ty",
+      "Căn cứ Quyết định số 5259/QĐ- EVNHCMC ngày 08/10/2025 của Tổng công ty",
+      "Căn cứ Quyết định số 309/QĐ -PCVT ngày 09/09/2025 của Công ty Điện lực",
+      "Căn cứ Biên bản khảo sát thực trạng của Công ty Điện lực Vũng Tàu Công trình:",
+      "Căn cứ Hợp đồng số 02-2026/HĐTV/PCVT-TVĐ ngày 23/02/2026 giữa Công ty",
+      "Căn cứ Nhiệm vụ khảo sát, phương án kỹ thuật khảo sát xây dựng phục vụ lập",
+      "Căn cứ Báo cáo khảo sát của Công ty cổ phần Tư vấn xây dựng Điện lực thành"
+    ],
+    "khoi_luong": [
+      "Stt Hạng mục",
+      "1 Sửa chữa thay dây cáp LV-ABC 4x50mm2 dài 53m bị tróc vỏ và phụ kiện hẻm",
+      "935/7 Bình Giã thuộc trạm biến áp Hẻm 935 Bình Giã bằng cáp LV-ABC",
+      "4x50mm2 cấp mới",
+      "2 Sửa chữa thay dây cáp LV-ABC 4x70mm2 dài 226m  bị tróc vỏ và phụ kiện",
+      "hẻm 374 Bùi Thiện Ngộ thuộc trạm biến áp Hẻm 842 Bình Giã bằng cáp LV-",
+      "ABC 4x70mm2 cấp mới",
+      "3 Sửa chữa thay dây cáp LV-ABC 4x70mm2 dài 74m bị tróc vỏ và phụ kiện áp",
+      "hẻm 259 Bùi Thiện Ngộ thuộc trạm biến áp Bình Giã P10 T3 bằng cáp LV -",
+      "ABC 4x70mm2 cấp mới",
+      "4  Sửa chữa thay dây cáp LV-ABC 4x95mm2 dài 525m bị tróc vỏ và phụ kiện",
+      "hẻm 17 Nguyễn Gia Thiều thuộc trạm biến áp Phước Thắng 1 bằng cáp LV -",
+      "ABC 4x95mm2 cấp mới",
+      "5 Sửa chữa thay dây cáp LV-ABC 4x70mm2 dài 63m bị tróc vỏ và phụ kiện hẻm",
+      "02 Phạm Văn Dinh thuộc  trạm biến áp Lê Quang Định 6 bằng cáp LV -ABC",
+      "4x70mm2 cấp mới",
+      "6 Sửa chữa thay dây cáp LV-ABC 4x120mm2 dài 465m bị tróc vỏ và phụ kiện",
+      "hẻm 116 Đô Lương thuộc trạm biến áp Hẻm 116 Đô Lương bằng cáp LV-ABC",
+      "4x120mm2 cấp mới",
+      "7 Sửa chữa thay dây cáp LV-ABC 4x70mm2 dài 91m bị tróc vỏ và phụ kiện hẻm",
+      "167/17 Trương Công Định thuộc trạm biến áp Trương Công Định 4 bằng cáp",
+      "LV-ABC 4x70mm2 cấp mới",
+      "8 Sửa chữa thay dây cáp LV-ABC 4x120mm2 dài 3.910m bị tróc vỏ và phụ kiện",
+      "thuộc trạm biến áp KDC H20 bằng cáp LV-ABC 4x120mm2 cấp mới",
+      "9 Sửa chữa thay dây cáp LV-ABC 4x70mm2 dài 1.232m bị tróc vỏ và phụ kiện",
+      "thuộc trạm biến áp Long Toàn 1 bằng cáp LV-ABC 4x70mm2 cấp mới",
+      "10 Sửa chữa thay dây cáp LV-ABC 4x70mm2 dài 2.014m bị tróc vỏ và phụ kiện",
+      "thuộc trạm biến áp Long Toàn 3 bằng cáp LV-ABC 4x70mm2 cấp mới",
+      "11 Thay thế tủ hạ thế và các phụ kiện đi kèm tại Khu nhà ở Đại An",
+      "12 Thay thế tủ hạ thế và các phụ kiện đi kèm tại Khu nhà ở Bình Minh"
+    ],
+    "source_file": "QDPD PAKT-DT SCL LUOI DIEN 2026.pdf"
+  },
+  "qt_data": {
+    "found": false
+  },
+  "contract_data": {
+    "found": true,
+    "so_hd": "1292-TCT",
+    "ngay_hd": "26/03/2026",
+    "nha_thau": "Liên danh Công ty TNHH Lạc Thành và Công ty  Cổ Phần Dịch Vụ Xây Dựng Quang Vũ",
+    "gia_tri_hd": 9368795730,
+    "thoi_gian_thi_cong": "",
+    "hinh_thuc": "Thuê ngoài",
+    "ngay_kc": "",
+    "ngay_ht": "",
+    "source_file": "1292-TCT Trao hop dong Goi xay lap SCL Trung HT TBA 2026.pdf"
+  },
+  "compliance": {
+    "status": "WARNING",
+    "total_dt": 12552889759.0,
+    "total_qt": 103128028.0,
+    "diff_val": -12449761731.0,
+    "diff_pct": -99.17845189450453,
+    "checks": [
+      {
+        "category": "Giá trị quyết toán",
+        "title": "Quyết toán trong hạn mức dự toán (Tiết kiệm chi phí)",
+        "rule": "Điều 43 QĐ 202/QĐ-HĐTV",
+        "level": "OK",
+        "icon": "🟢",
+        "detail": "Quyết toán (103.128.028 đ) tiết kiệm so với dự toán (12.552.889.759 đ) là 12.449.761.731 đ (-99.18%).",
+        "recommendation": "Hồ sơ tuân thủ quy định về giá trị, không làm phát sinh tăng vốn SCL."
+      },
+      {
+        "category": "Vật tư thu hồi",
+        "title": "Dự toán có VTTB thu hồi nhưng quyết toán chưa thể hiện giảm trừ",
+        "rule": "Khoản 4 Điều 28 & Điều 42 QĐ 202/QĐ-HĐTV",
+        "level": "WARNING",
+        "icon": "🟡",
+        "detail": "Trong dự toán được duyệt có tính giá trị VTTB thu hồi là 398.483.278 đ nhưng trong quyết toán chưa thấy giảm trừ.",
+        "recommendation": "Theo Khoản 4 Điều 28, 'Giá trị vật tư thu hồi được hạch toán giảm giá trị công trình SCL'. Cần kiểm tra biên bản thu hồi, phiếu nhập kho vật tư thu hồi và lập bảng giảm trừ quyết toán."
+      },
+      {
+        "category": "Chi phí dự phòng",
+        "title": "Chi phí dự phòng quyết toán bằng 0 (Đúng quy định)",
+        "rule": "Quy định quản lý chi phí SCL",
+        "level": "OK",
+        "icon": "🟢",
+        "detail": "Dự toán dự phòng: 597.756.655 đ ➔ Quyết toán: 0 đ.",
+        "recommendation": "Quyết toán theo chi phí thực tế phát sinh hợp pháp, không quyết toán dự phòng thừa."
+      },
+      {
+        "category": "Tiến độ thực hiện",
+        "title": "Chưa có ngày hoàn thành công trình",
+        "rule": "Điều 49 QĐ 202/QĐ-HĐTV",
+        "level": "WARNING",
+        "icon": "🟡",
+        "detail": "Đã có ngày khởi công (28/03/2026) nhưng chưa có ngày nghiệm thu hoàn thành.",
+        "recommendation": "Cần bổ sung Biên bản nghiệm thu hoàn thành để xác định thời điểm kết thúc thi công và chốt số liệu quyết toán."
+      },
+      {
+        "category": "Thành phần hồ sơ",
+        "title": "Phát hiện thiếu 2 đầu mục tài liệu theo Điều 45 & Phụ lục 10",
+        "rule": "Điều 45 & Phụ lục 10 QĐ 202/QĐ-HĐTV",
+        "level": "WARNING",
+        "icon": "🟡",
+        "detail": "Đã có: Biên bản khảo sát hiện trạng, Quyết định phê duyệt PAKT-DT, Hồ sơ lựa chọn nhà thầu / KHLCNT, Hợp đồng kinh tế / Thư trao thầu. Chưa thấy: Biên bản nghiệm thu hoàn công, Hồ sơ / Bảng quyết toán A-B.",
+        "recommendation": "Cần bổ sung các tài liệu còn thiếu (Biên bản nghiệm thu hoàn công, Hồ sơ / Bảng quyết toán A-B) vào thư mục hồ sơ công trình để hoàn thiện bộ hồ sơ quyết toán hợp lệ."
+      }
+    ],
+    "summary": "⚡ **LƯU Ý:** Hồ sơ cơ bản đáp ứng nhưng cần rà soát bổ sung một số tài liệu hoặc giảm trừ VTTB thu hồi theo quy định.",
+    "found_docs": [
+      "Biên bản khảo sát hiện trạng",
+      "Quyết định phê duyệt PAKT-DT",
+      "Hồ sơ lựa chọn nhà thầu / KHLCNT",
+      "Hợp đồng kinh tế / Thư trao thầu"
+    ],
+    "missing_docs": [
+      "Biên bản nghiệm thu hoàn công",
+      "Hồ sơ / Bảng quyết toán A-B"
+    ]
+  },
+  "updated_at": "26/08/2026 14:33:09"
+}
