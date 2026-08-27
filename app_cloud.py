@@ -244,7 +244,7 @@ with st.sidebar:
     st.markdown('<p class="sidebar-logo" style="font-size: 28px !important; line-height: 1.3; margin-bottom: 5px;">Công ty Điện lực Vũng Tàu</p>',unsafe_allow_html=True)
     st.divider()
     page=st.radio("📂 Chuyên mục",
-        ["📊 Tổng quan","📋 Bảng tổng hợp QT","📝 Tờ trình duyệt QT","📄 Thuyết minh QT",
+        ["📊 Tổng quan","⚖️ Kiểm dò pháp lý & Thanh toán","📋 Bảng tổng hợp QT","📝 Tờ trình duyệt QT","📄 Thuyết minh QT",
          "🔍 Phiếu thẩm tra","📜 Báo cáo thẩm tra","📜 Quyết định phê duyệt"],
         label_visibility="collapsed")
     st.divider()
@@ -529,6 +529,109 @@ if page=="📊 Tổng quan":
 
 
 
+
+
+# ── PAGE: KIỂM DÒ PHÁP LÝ & ĐIỀU KIỆN THANH TOÁN ──
+elif page=="⚖️ Kiểm dò pháp lý & Thanh toán":
+    st.markdown('<p class="page-title">⚖️ BỘ LỌC KIỂM DÒ PHÁP LÝ & ĐIỀU KIỆN THANH QUYẾT TOÁN SCL</p>', unsafe_allow_html=True)
+    st.caption("Căn cứ: QĐ 202/QĐ-HĐTV (EVNHCMC) • TTr 1093/KTAT • Thông báo 2902/TB-PCVT • Nghị định 123/2020/NĐ-CP • Luật Đấu thầu 2023")
+    
+    row_th, mr, ten, cd = _select_ct("p_legal_sel", header_container)
+    if row_th is not None:
+        ma_ct = str(row_th.get('Mã CT', '')).strip()
+        from dossier_scanner import find_project_folder, scan_and_update_project, load_cached_scan_result
+        from legal_checker import audit_dossier_legal
+        
+        p_folder = find_project_folder(ma_ct, ten)
+        
+        # Thanh công cụ quét & kiểm tra
+        with st.container(border=True):
+            col_f1, col_f2 = st.columns([3, 1])
+            with col_f1:
+                if p_folder and os.path.exists(p_folder):
+                    rel_p = os.path.relpath(p_folder, BASE_DIR)
+                    st.markdown(f"📁 **Thư mục hồ sơ:** `{rel_p}` ✅")
+                    st.write(f"Công trình: **{ma_ct} - {ten}**")
+                else:
+                    st.markdown(f"📁 **Thư mục hồ sơ:** Chưa tìm thấy thư mục cho **{ma_ct}** ⚠️")
+                    st.caption("💡 Chép tài liệu vào thư mục `Ho_so_cong_trinh/` để hệ thống tự động kiểm dò.")
+            with col_f2:
+                btn_audit = st.button("🚀 Quét & Kiểm dò Pháp lý", type="primary", use_container_width=True, key=f"btn_audit_{ma_ct}")
+
+        if btn_audit:
+            with st.spinner("🔄 Đang chạy Bộ lọc kiểm dò 7 tiêu chí pháp lý cốt lõi..."):
+                res_scan = scan_and_update_project(ma_ct, ten)
+                st.session_state[f"scan_res_{ma_ct}"] = res_scan
+                st.rerun()
+
+        # Nạp dữ liệu kiểm tra
+        res_scan = st.session_state.get(f"scan_res_{ma_ct}")
+        if not res_scan:
+            res_scan = load_cached_scan_result(ma_ct)
+
+        scanned_files = res_scan.get('scanned_files', []) if res_scan else []
+        if not scanned_files and p_folder and os.path.exists(p_folder):
+            for r_p, _, f_list in os.walk(p_folder):
+                for f in f_list:
+                    scanned_files.append(os.path.join(r_p, f))
+
+        audit_res = audit_dossier_legal(ma_ct, ten, scanned_files, mr if mr is not None else row_th, cd, p_folder or "")
+
+        # ── 1. BANNER KẾT LUẬN THANH TOÁN ──
+        if not audit_res['can_pay'] or audit_res['overall_status'] == 'DANGER':
+            st.error(f"""
+            ### 🛑 KẾT LUẬN: CHƯA ĐỦ ĐIỀU KIỆN THANH TOÁN / KẾT THÚC HỢP ĐỒNG!
+            **Lý do:** Hồ sơ còn tồn tại các lỗi pháp lý nghiêm trọng (màu đỏ bên dưới) cần khắc phục hoàn tất trước khi trình Giám đốc phê duyệt chi tiền.
+            """)
+        elif audit_res['overall_status'] == 'WARNING':
+            st.warning(f"""
+            ### ⚠️ KẾT LUẬN: CẦN BỔ SUNG & RÀ SOÁT CHỨNG TỪ
+            Hồ sơ cơ bản đáp ứng, nhưng cần bổ sung các tài liệu còn thiếu để đảm bảo an toàn tuyệt đối khi thanh quyết toán.
+            """)
+        else:
+            st.success(f"""
+            ### 🟢 KẾT LUẬN: ĐỦ ĐIỀU KIỆN THANH QUYẾT TOÁN HỢP ĐỒNG!
+            Hồ sơ tuân thủ 100% các quy định pháp lý, tên đơn vị, địa chỉ, tài khoản ngân hàng, chứng từ chất lượng CO/CQ và hóa đơn.
+            """)
+
+        # ── 2. KHUNG CÁC VIỆC CẦN XỬ LÝ NGAY ──
+        if audit_res['action_items']:
+            with st.container(border=True):
+                st.markdown("### 📋 DANH SÁCH VIỆC CẦN XỬ LÝ NGAY ĐỂ HOÀN TẤT HỒ SƠ:")
+                st.caption("Anh hãy kiểm tra và đánh dấu các công việc đã thực hiện xong bên dưới:")
+                for idx_act, item in enumerate(audit_res['action_items']):
+                    st.checkbox(f"**{item}**", key=f"act_{ma_ct}_{idx_act}")
+
+        # ── 3. BẢNG CHI TIẾT 7 TIÊU CHÍ KIỂM DÒ PHÁP LÝ ──
+        st.markdown("### 🔍 BẢNG CHI TIẾT 7 TIÊU CHÍ KIỂM DÒ PHÁP LÝ:")
+        for chk in audit_res['checks']:
+            icon = chk.get('icon', '⚪')
+            lvl = chk.get('level', 'OK')
+            border_color = "#ef4444" if lvl == "DANGER" else ("#f59e0b" if lvl == "WARNING" else "#22c55e")
+            
+            with st.container(border=True):
+                c_title, c_stat = st.columns([3, 1])
+                with c_title:
+                    st.markdown(f"#### {icon} {chk['category']}: **{chk['title']}**")
+                    st.caption(f"📌 **Căn cứ pháp lý:** `{chk['rule']}`")
+                with c_stat:
+                    if lvl == "DANGER":
+                        st.markdown(f"<p style='color:#ef4444;font-weight:700;text-align:right;'>{chk.get('status_text', 'CHƯA ĐẠT')}</p>", unsafe_allow_html=True)
+                    elif lvl == "WARNING":
+                        st.markdown(f"<p style='color:#f59e0b;font-weight:700;text-align:right;'>{chk.get('status_text', 'LƯU Ý')}</p>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<p style='color:#22c55e;font-weight:700;text-align:right;'>{chk.get('status_text', 'ĐẠT CHUẨN')}</p>", unsafe_allow_html=True)
+
+                st.write(chk['detail'])
+                st.info(f"💡 **Hướng xử lý chuẩn:** {chk['recommendation']}")
+
+        # ── 4. THÔNG TIN HỒ SƠ ĐÃ QUÉT ĐƯỢC ──
+        with st.expander(f"📁 Danh sách {len(scanned_files)} tệp hồ sơ đã quét trong thư mục", expanded=False):
+            if scanned_files:
+                for f_path in scanned_files:
+                    st.write(f"- `{os.path.basename(f_path)}` *({os.path.relpath(f_path, BASE_DIR)})*")
+            else:
+                st.info("Chưa có tệp scan nào trong thư mục công trình.")
 
 
 # ── PAGE 2: BẢNG TỔNG HỢP QT ──
