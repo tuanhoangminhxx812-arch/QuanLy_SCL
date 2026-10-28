@@ -162,13 +162,14 @@ border-left:3px solid #1976D2;padding-left:10px}
 .sidebar-logo{font-size:32px!important;font-weight:800!important;color:#ffffff!important;
 letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,.2)}
 .sidebar-sub{font-size:16px!important;color:rgba(255,255,255,.85)!important;font-weight:500!important}
-.a4-preview{background:#ffffff;border:1px solid #d0d0d0;padding:2cm 2.5cm;
+.a4-preview{background:#ffffff;border:1px solid #d0d0d0;padding:2.0cm 2.0cm 2.0cm 2.5cm;
 max-height:700px;overflow-y:auto;font-family:'Times New Roman',serif;font-size:13pt;
-line-height:1.6;color:#000000;box-shadow:0 2px 20px rgba(0,0,0,.18);margin:0 auto;max-width:210mm;border-radius:2px;}
-.a4-preview p{margin:0 0 4pt 0;text-align:justify;}
-.a4-preview .center-title{text-align:center;font-weight:bold;font-size:14pt;margin-bottom:12pt;line-height:1.3;text-transform:uppercase;}
-.a4-preview table{width:100%;border-collapse:collapse;margin:8pt 0;}
-.a4-preview td,.a4-preview th{padding:5pt;vertical-align:top;}
+.a4-preview p{margin:0;padding:0;text-align:justify;line-height:1.3;text-indent:1cm;}
+.a4-preview p.no-indent{text-indent:0 !important;}
+.a4-preview .center-title{text-align:center;font-weight:bold;font-size:14pt;margin:10pt 0 6pt;line-height:1.3;text-transform:uppercase;text-indent:0 !important;}
+.a4-preview table{width:100%;border-collapse:collapse;margin:6pt 0;}
+.a4-preview table p{text-indent:0 !important;margin:0 !important;}
+.a4-preview td,.a4-preview th{padding:4pt;vertical-align:top;}
 div[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden}
 .doc-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:4px;}
 .doc-card-title{font-weight:700;color:#1565C0;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
@@ -247,11 +248,14 @@ A4_CSS = """
 <style>
 *{box-sizing:border-box}
 body{margin:0;padding:12px;background:#f0f2f6;font-family:'Times New Roman',serif;font-size:13pt;color:#000}
-.a4-preview{background:#ffffff;border:1px solid #d0d0d0;padding:2cm 2.5cm;
- max-width:210mm;margin:0 auto;line-height:1.6;box-shadow:0 2px 20px rgba(0,0,0,.18);border-radius:2px;}
-.a4-preview p{margin:0 0 4pt 0;text-align:justify;}
-.a4-preview table{width:100%;border-collapse:collapse;margin:8pt 0;}
-.a4-preview td,.a4-preview th{padding:5pt;vertical-align:top;}
+.a4-preview{background:#ffffff;border:1px solid #d0d0d0;padding:2.0cm 2.0cm 2.0cm 2.5cm;
+ max-width:210mm;margin:0 auto;line-height:1.3;box-shadow:0 2px 20px rgba(0,0,0,.18);border-radius:2px;}
+.a4-preview p{margin:0;padding:0;text-align:justify;line-height:1.3;text-indent:1cm;}
+.a4-preview p.no-indent{text-indent:0 !important;}
+.a4-preview .center-title{text-align:center !important;font-weight:bold;margin:12pt 0 6pt;line-height:1.3;text-transform:uppercase;text-indent:0 !important;}
+.a4-preview table{width:100%;border-collapse:collapse;margin:6pt 0;}
+.a4-preview table p{text-indent:0 !important;margin:0 !important;}
+.a4-preview td,.a4-preview th{padding:4pt;vertical-align:top;}
 /* Bảng số liệu chi phí ngay hàng thẳng lối 100% chuẩn mẫu */
 .cost-table { width: auto !important; border: none !important; margin: 4pt 0 6pt 35px !important; border-collapse: collapse !important; }
 .cost-table tr { border: none !important; }
@@ -1059,14 +1063,14 @@ elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM
                 ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
             ], indent_px=35, label_min_width=175)}
             
-            <p style="margin-left:20px;margin-top:6pt;"><b>3/ Phần kiến thiết cơ bản khác:</b></p>
-            <table style="width:100%;border-collapse:collapse;margin:10pt 0;font-size:11pt;">
+            <p class="no-indent" style="margin-top:6pt;"><b>3/ Phần kiến thiết cơ bản khác:</b></p>
+            <table style="width:100%;border-collapse:collapse;margin:8pt 0;font-size:11pt;border:1px solid #000;">
                 <tr style="font-weight:bold;text-align:center;background:#f0f0f0;">
-                    <td style="border:1px solid #000;padding:5pt;">Nội dung</td>
-                    <td style="border:1px solid #000;padding:5pt;width:18%;">Dự toán được duyệt</td>
-                    <td style="border:1px solid #000;padding:5pt;width:18%;">Giá trị quyết toán</td>
-                    <td style="border:1px solid #000;padding:5pt;width:18%;">Số thẩm tra</td>
-                    <td style="border:1px solid #000;padding:5pt;width:18%;">Chênh lệch TTr/QT</td>
+                    <td style="border:1px solid #000;padding:5pt;text-align:center;width:40%;">Nội dung</td>
+                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Dự toán<br>được duyệt</td>
+                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Giá trị<br>quyết toán</td>
+                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Số thẩm tra</td>
+                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Chênh lệch<br>TTr/QT</td>
                 </tr>
                 {ktcb_rows_html}
             </table>
@@ -1185,24 +1189,24 @@ elif "QUYẾT ĐỊNH" in page:
                 <span style="font-size:12pt;font-weight:normal;">V/v phê duyệt quyết toán công trình Sửa chữa lớn hoàn thành</span>
             </div>
             
-            <p>Tên công trình: <b>{ten}</b></p>
-            <p>Mã công trình: <b>{ma_ct}</b></p>
-            <p>Chủ đầu tư: <b>Công ty Điện lực Vũng Tàu</b></p>
-            <p>Kế hoạch vốn năm: <b>{now.year}</b></p>
-            <p>Nguồn vốn: <b>Sửa chữa lớn</b></p>
+            <p class="no-indent">Tên công trình: <b>{ten}</b></p>
+            <p class="no-indent">Mã công trình: <b>{ma_ct}</b></p>
+            <p class="no-indent">Chủ đầu tư: <b>Công ty Điện lực Vũng Tàu</b></p>
+            <p class="no-indent">Kế hoạch vốn năm: <b>{now.year}</b></p>
+            <p class="no-indent">Nguồn vốn: <b>Sửa chữa lớn</b></p>
             
-            <div style="text-align:center;font-weight:bold;margin:15pt 0 10pt 0;">GIÁM ĐỐC CÔNG TY ĐIỆN LỰC VŨNG TÀU</div>
+            <div class="center-title">GIÁM ĐỐC CÔNG TY ĐIỆN LỰC VŨNG TÀU</div>
             
-            <p style="text-align:justify;line-height:1.6;">
+            <p style="text-align:justify;line-height:1.3;">
             Căn cứ Quyết định số 202/QĐ-HĐTV ngày 31/12/2025 của Tổng công ty Điện lực TP.HCM về việc ban hành quy định thực hiện công tác sửa chữa lớn tài sản trong Tổng công ty Điện lực Thành phố Hồ Chí Minh;<br>
             Căn cứ  quyết định số {so_dt} ngày {ngay_dt} về việc phê duyệt bổ sung danh mục công trình và điều hòa kế hoạch vốn sửa chữa lớn năm {now.year} của Công ty Điện lực Vũng Tàu;<br>
             Căn cứ hồ sơ quyết toán công trình: {ten};<br>
             Căn cứ báo cáo thẩm tra quyết toán của Tổ thẩm tra duyệt quyết toán công trình sửa chữa lớn Công ty Điện lực Vũng tàu.
             </p>
             
-            <div style="text-align:center;font-weight:bold;margin:15pt 0 10pt 0;">QUYẾT ĐỊNH :</div>
+            <div class="center-title">QUYẾT ĐỊNH :</div>
             
-            <p><b>Điều 1. Phê duyệt quyết toán</b></p>
+            <p class="no-indent"><b>Điều 1. Phê duyệt quyết toán</b></p>
             <p>Công trình: <b>{ten}</b> với tổng giá trị công trình : <b>{_fmt_money_dot(tong_qt)} đồng.</b></p>
             <p>(Bằng chữ: <i>{bang_chu}</i>).</p>
             <p style="margin-left:20px;margin-bottom:2px;">Trong đó:</p>

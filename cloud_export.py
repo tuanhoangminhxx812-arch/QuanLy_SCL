@@ -17,7 +17,7 @@ import datetime
 from io import BytesIO
 import pandas as pd
 from docx import Document as DocxDocument
-from docx.shared import Pt, Inches, RGBColor
+from docx.shared import Pt, Inches, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement, parse_xml
@@ -81,6 +81,159 @@ def add_aligned_cost_lines_docx(doc, items, left_pt=49.65, colon_pt=205.55, righ
             r1.bold = True
             r2.bold = True
             r3.bold = True
+
+
+def _enforce_page_setup(doc, top_cm=2.0, bottom_cm=2.0, left_cm=2.5, right_cm=2.0):
+    """
+    Thiết lập khổ giấy A4 và canh lề chính xác theo quy chuẩn:
+    Left = 2.5cm, Right = 2.0cm, Top = 2.0cm, Bottom = 1.0 - 2.0cm (để vừa vặn số trang in)
+    """
+    for s in doc.sections:
+        s.page_width = Cm(21.0)
+        s.page_height = Cm(29.7)
+        s.top_margin = Cm(top_cm)
+        s.bottom_margin = Cm(bottom_cm)
+        s.left_margin = Cm(left_cm)
+        s.right_margin = Cm(right_cm)
+        s.header_distance = Cm(1.27)
+        s.footer_distance = Cm(1.27)
+
+
+def _set_aligned_cost_line(p, lbl, val, is_bold, unit="đồng.", left_pt=49.65, colon_pt=205.55, right_pt=382.75, font_size=Pt(14)):
+    """Ghi đè dòng chi phí giữ nguyên tab stops và định dạng chuẩn mẫu"""
+    p.text = ""
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(0)
+    p.paragraph_format.line_spacing = 1.0
+    p.paragraph_format.tab_stops.clear_all()
+    p.paragraph_format.tab_stops.add_tab_stop(Pt(left_pt), WD_TAB_ALIGNMENT.LEFT)
+    p.paragraph_format.tab_stops.add_tab_stop(Pt(colon_pt), WD_TAB_ALIGNMENT.LEFT)
+    p.paragraph_format.tab_stops.add_tab_stop(Pt(right_pt), WD_TAB_ALIGNMENT.RIGHT)
+    
+    r1 = p.add_run(f"\t{lbl}")
+    r2 = p.add_run("\t:  \t")
+    r3 = p.add_run(f"{val} {unit.strip()}")
+    for r in [r1, r2, r3]:
+        r.font.name = "Times New Roman"
+        r.font.size = font_size
+        if is_bold:
+            r.bold = True
+
+
+def set_table_borders(table, color="000000", sz="4", val="single"):
+    """Tô khung viền đen đầy đủ cho toàn bộ bảng (Table Grid)"""
+    tblPr = table._tbl.tblPr
+    tblBorders = parse_xml(f'''
+        <w:tblBorders {nsdecls("w")}>
+            <w:top w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>
+            <w:left w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>
+            <w:bottom w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>
+            <w:right w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>
+            <w:insideH w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>
+            <w:insideV w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>
+        </w:tblBorders>
+    ''')
+    tblPr.append(tblBorders)
+
+
+def _format_paragraphs_and_tables(doc, doc_type="qd"):
+    """
+    Chuẩn hoá toàn bộ định dạng Paragraph và Table theo yêu cầu:
+    1. Spacing before: 0, Spacing after: 0
+    2. Line spacing: single (1.0)
+    3. Các dòng tiêu đề như GIÁM ĐỐC CÔNG TY, QUYẾT ĐỊNH, BÁO CÁO THẨM TRA... canh giữa (Center)
+    4. Các đoạn nội dung First line indent: lùi vào 1cm (Cm(1.0))
+    5. Table KTCB (Báo cáo thẩm tra): tô khung đầy đủ, giãn ô nội dung (6.5cm, 2.5cm, 2.5cm, 2.5cm, 2.5cm)
+    """
+    center_keywords = [
+        "GIÁM ĐỐC CÔNG TY ĐIỆN LỰC VŨNG TÀU",
+        "QUYẾT ĐỊNH :",
+        "QUYẾT ĐỊNH",
+        "V/v phê duyệt quyết toán",
+        "BÁO CÁO THẨM TRA QUYẾT TOÁN",
+        "CÔNG TRÌNH SỬA CHỮA LỚN",
+        "THÀNH VIÊN TỔ THẨM TRA QUYẾT TOÁN"
+    ]
+
+    for p in doc.paragraphs:
+        txt = p.text.strip()
+        if not txt:
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.first_line_indent = Pt(0)
+            continue
+
+        # Kiểm tra tiêu đề cần canh giữa
+        is_center_title = False
+        for kw in center_keywords:
+            if kw == txt or (kw in txt and len(txt) <= len(kw) + 10):
+                is_center_title = True
+                break
+
+        if is_center_title:
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.first_line_indent = Pt(0)
+            continue
+
+        # Dòng số liệu chi phí dùng Tab Stops -> không thụt dòng first line indent
+        if "\t" in p.text and ":" in p.text:
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.first_line_indent = Pt(0)
+            continue
+
+        # Tiêu mục nhỏ hoặc dòng nơi nhận (không thụt lùi 1cm)
+        if any(txt.startswith(sh) for sh in ["I/-", "II/", "1/ Phần", "2/  Phần", "2/ Phần", "3/ Phần", "Nơi nhận:", "- P.KHVT", "- Lưu:"]):
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.first_line_indent = Pt(0)
+            continue
+
+        # Các đoạn nội dung thông thường (Căn cứ..., Công trình..., Bằng chữ..., Điều 1/2/3..., Kính gửi..., Trân trọng...)
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.line_spacing = 1.0
+        p.paragraph_format.first_line_indent = Cm(1.0)
+        if p.alignment != WD_ALIGN_PARAGRAPH.CENTER:
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    # Định dạng các ô trong tất cả các bảng
+    for table in doc.tables:
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    p.paragraph_format.space_before = Pt(0)
+                    p.paragraph_format.space_after = Pt(0)
+                    p.paragraph_format.line_spacing = 1.0
+                    p.paragraph_format.first_line_indent = Pt(0)
+
+    # Riêng Báo cáo thẩm tra: bảng Table 1 (Phần kiến thiết cơ bản khác)
+    if doc_type == "bctt" and len(doc.tables) > 1:
+        t_ktcb = doc.tables[1]
+        set_table_borders(t_ktcb, color="000000", sz="4", val="single")
+        col_widths = [Cm(6.5), Cm(2.5), Cm(2.5), Cm(2.5), Cm(2.5)]
+        for row in t_ktcb.rows:
+            for idx, w in enumerate(col_widths):
+                row.cells[idx].width = w
+
+    # Riêng Quyết định: Table 0 (Tiêu ngữ)
+    if doc_type == "qd" and len(doc.tables) > 0:
+        t0 = doc.tables[0]
+        if len(t0.rows) > 3:
+            c31 = t0.cell(3, 1)
+            p31 = c31.paragraphs[0]
+            if not p31.text.strip():
+                p31.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p31.text = "-----------------------"
+                p31.runs[0].font.name = "Times New Roman"
+                p31.runs[0].font.size = Pt(10)
 
 
 def _apply_font(doc, font_name='Times New Roman', font_size=Pt(12)):
@@ -170,23 +323,17 @@ def get_project_section(db_df, project_name, project_code=None):
 # (Khớp y chang file HS_mau/TTr Duyệt QT DM SCL Hoàn thành.docx)
 # ============================================================
 def export_ttr_duyet_qt_word(main_row, ct_data, thqt_data=None):
-    doc = DocxDocument()
-    
-    # Thiết lập lề trang
-    for sec in doc.sections:
-        sec.top_margin = Inches(0.8)
-        sec.bottom_margin = Inches(0.8)
-        sec.left_margin = Inches(1.0)
-        sec.right_margin = Inches(0.8)
-
     ten = str(main_row.get('Tên Công trình', '')) if main_row is not None else ''
     ma = str(main_row.get('Mã CT', '')) if main_row is not None and pd.notna(main_row.get('Mã CT')) else ''
-    so_dt = str(main_row.get('Số Dự toán', '')) if main_row is not None and pd.notna(main_row.get('Số Dự toán')) else '135/QĐ-PCVT'
-    ngay_dt = _format_date_vn(main_row.get('Ngày Dự toán')) if main_row is not None else '16/03/2026'
-    if '....' in ngay_dt:
+    so_dt = str(main_row.get('Số QĐ giao KH', '')) if main_row is not None and pd.notna(main_row.get('Số QĐ giao KH')) else ''
+    if not so_dt and main_row is not None and pd.notna(main_row.get('Số Dự toán')):
+        so_dt = str(main_row.get('Số Dự toán'))
+    if not so_dt:
+        so_dt = '135/QĐ-PCVT'
+    ngay_dt = _format_date_vn(main_row.get('Ngày Dự toán')) if main_row is not None else ''
+    if not ngay_dt or '....' in ngay_dt:
         ngay_dt = '16/03/2026'
 
-    # Lấy số liệu từ thqt_data nếu có, ngược lại fallback ct_data
     if thqt_data and 'summary' in thqt_data:
         sm = thqt_data['summary']
         if thqt_data.get('ten_ct'): ten = thqt_data['ten_ct']
@@ -205,16 +352,76 @@ def export_ttr_duyet_qt_word(main_row, ct_data, thqt_data=None):
         scl_qt = bd.get('SCL', {}).get('qt', 0)
         if scl_qt == 0 and main_row is not None and 'Giá trị Q.định phê duyệt QT công trình' in main_row:
             scl_qt = float(main_row.get('Giá trị Q.định phê duyệt QT công trình', 0))
-        thue_qt = bd.get('B.8', {}).get('qt', 0)
-        sc_qt = bd.get('B', {}).get('qt', 0)
+
         tb_qt = bd.get('A', {}).get('qt', 0)
+        sc_qt = bd.get('B', {}).get('qt', 0)
         khac_qt = bd.get('C', {}).get('qt', 0)
         vtth_qt = bd.get('F', {}).get('qt', 0)
-        if thue_qt == 0 and scl_qt > 0:
-            thue_qt = int(round(scl_qt - scl_qt / 1.08))
+        thue_qt = bd.get('B.8', {}).get('qt', 0)
+        if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
         truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
         tong_qt = scl_qt
-        bang_chu = doc_so_vn(tong_qt)
+        bang_chu = doc_so_vn(scl_qt)
+
+    now_year = datetime.date.today().year
+
+    # Kiểm tra xem có file mẫu trong HS_mau không
+    tmpl_path = os.path.join(BASE_DIR, 'HS_mau', 'TTr Duyệt QT DM SCL Hoàn thành.docx')
+    if os.path.exists(tmpl_path):
+        doc = DocxDocument(tmpl_path)
+        _enforce_page_setup(doc, top_cm=2.0, bottom_cm=1.0, left_cm=2.5, right_cm=2.0)
+
+        if len(doc.tables) > 0 and len(doc.tables[0].rows) > 3:
+            r3c1 = doc.tables[0].cell(3, 1).paragraphs[0]
+            r3c1.text = f"Vũng Tàu, ngày     tháng      năm  {now_year}"
+            for r in r3c1.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(11)
+                r.italic = True
+
+        if len(doc.paragraphs) > 5:
+            p5 = doc.paragraphs[5]
+            p5.text = f"Căn cứ  quyết định số {so_dt} ngày {ngay_dt} về việc phê duyệt bổ sung danh mục công trình và điều hòa kế hoạch vốn sửa chữa lớn năm {now_year} của Công ty Điện lực Vũng Tàu;"
+            for r in p5.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+        if len(doc.paragraphs) > 6:
+            p6 = doc.paragraphs[6]
+            p6.text = ""
+            r1 = p6.add_run(f"Căn cứ báo cáo thẩm tra quyết toán công trình {ten}. Kính đề nghị Ông Giám đốc phê duyệt quyết toán công trình {ten}, mã công trình {ma} với tổng giá trị công trình là: ")
+            r1.font.name = "Times New Roman"
+            r1.font.size = Pt(14)
+            r2 = p6.add_run(f"{_fmt_money_dot(tong_qt)} đồng.")
+            r2.font.name = "Times New Roman"
+            r2.font.size = Pt(14)
+            r2.bold = True
+
+        if len(doc.paragraphs) > 7:
+            p7 = doc.paragraphs[7]
+            p7.text = f"(Bằng chữ:  {bang_chu})."
+            for r in p7.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+        if len(doc.paragraphs) > 17:
+            _set_aligned_cost_line(doc.paragraphs[9], "Chi phí Sửa chữa", _fmt_money_dot(sc_qt), False, "đồng.")
+            _set_aligned_cost_line(doc.paragraphs[10], "Chi phí vật tư, thiết bị", _fmt_money_dot(tb_qt), False, "đồng.")
+            _set_aligned_cost_line(doc.paragraphs[11], "Chi phí KTCB khác", _fmt_money_dot(khac_qt), False, "đồng.")
+            _set_aligned_cost_line(doc.paragraphs[13], "Tổng giá trị trước thuế", _fmt_money_dot(truoc_thue), True, "đồng.")
+            _set_aligned_cost_line(doc.paragraphs[14], "Thuế GTGT", _fmt_money_dot(thue_qt), False, "đồng.")
+            _set_aligned_cost_line(doc.paragraphs[15], "Tổng giá trị Quyết toán", _fmt_money_dot(tong_qt), True, "đồng.")
+            _set_aligned_cost_line(doc.paragraphs[16], "Chi phí vật tư thu hồi", _fmt_money_dot(vtth_qt), False, "đồng.")
+            _set_aligned_cost_line(doc.paragraphs[17], "Chi phí sửa chữa lớn", _fmt_money_dot(scl_qt), True, "đồng")
+
+        _format_paragraphs_and_tables(doc, doc_type="ttr")
+        buf = BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    # Fallback nếu không có file mẫu
+    doc = DocxDocument()
+    _enforce_page_setup(doc, top_cm=2.0, bottom_cm=1.0, left_cm=2.5, right_cm=2.0)
 
     # Bảng tiêu ngữ (4 rows x 2 cols giống HS_mau)
     table_hdr = doc.add_table(rows=4, cols=2)
@@ -226,6 +433,7 @@ def export_ttr_duyet_qt_word(main_row, ct_data, thqt_data=None):
     p = c00.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = p.add_run("CÔNG TY ĐIỆN LỰC VŨNG TÀU")
+    r.font.size = Pt(11)
     r.font.size = Pt(11)
 
     c01 = table_hdr.cell(0, 1)
@@ -326,6 +534,7 @@ def export_ttr_duyet_qt_word(main_row, ct_data, thqt_data=None):
     r_tp2 = c_tp_p.add_run("Hà Thị Mai Hiên")
     r_tp2.bold = True
 
+    _format_paragraphs_and_tables(doc, doc_type="ttr")
     _apply_font(doc)
     buf = BytesIO()
     doc.save(buf)
@@ -338,11 +547,7 @@ def export_ttr_duyet_qt_word(main_row, ct_data, thqt_data=None):
 # ============================================================
 def export_tmqt_word(main_row, ct_data, noi_dung_scl=''):
     doc = DocxDocument()
-    for sec in doc.sections:
-        sec.top_margin = Inches(0.8)
-        sec.bottom_margin = Inches(0.8)
-        sec.left_margin = Inches(1.0)
-        sec.right_margin = Inches(0.8)
+    _enforce_page_setup(doc, top_cm=2.0, bottom_cm=2.0, left_cm=2.5, right_cm=2.0)
 
     ten = str(main_row.get('Tên Công trình', ''))
     ma = str(main_row.get('Mã CT', '')) if pd.notna(main_row.get('Mã CT')) else ''
@@ -458,11 +663,7 @@ def export_tmqt_word(main_row, ct_data, noi_dung_scl=''):
 # ============================================================
 def export_phieu_tham_tra_word(main_row):
     doc = DocxDocument()
-    for sec in doc.sections:
-        sec.top_margin = Inches(0.8)
-        sec.bottom_margin = Inches(0.8)
-        sec.left_margin = Inches(1.0)
-        sec.right_margin = Inches(0.8)
+    _enforce_page_setup(doc, top_cm=2.0, bottom_cm=2.0, left_cm=2.5, right_cm=2.0)
 
     ten = str(main_row.get('Tên Công trình', ''))
     ma = str(main_row.get('Mã CT', '')) if pd.notna(main_row.get('Mã CT')) else ''
@@ -543,13 +744,6 @@ def export_phieu_tham_tra_word(main_row):
 # (Khớp y chang file HS_mau/Báo cáo Thẩm tra.docx)
 # ============================================================
 def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
-    doc = DocxDocument()
-    for sec in doc.sections:
-        sec.top_margin = Inches(0.8)
-        sec.bottom_margin = Inches(0.8)
-        sec.left_margin = Inches(1.0)
-        sec.right_margin = Inches(0.8)
-
     ten = str(main_row.get('Tên Công trình', '')) if main_row is not None else ''
     ma = str(main_row.get('Mã CT', '')) if main_row is not None and pd.notna(main_row.get('Mã CT')) else ''
     don_vi_th = str(main_row.get('Đơn vị QL', '')) if main_row is not None and pd.notna(main_row.get('Đơn vị QL')) else 'Công ty CP Tư vấn Dịch vụ Xây dựng Thái Bình'
@@ -599,6 +793,108 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
         tot_ktcb_qt = khac_qt
 
     now_year = datetime.date.today().year
+
+    # Kiểm tra xem có file mẫu trong HS_mau không
+    tmpl_path = os.path.join(BASE_DIR, 'HS_mau', 'Báo cáo Thẩm tra.docx')
+    if os.path.exists(tmpl_path):
+        doc = DocxDocument(tmpl_path)
+        _enforce_page_setup(doc, top_cm=2.0, bottom_cm=1.5, left_cm=2.5, right_cm=2.0)
+
+        if len(doc.paragraphs) > 4:
+            p4 = doc.paragraphs[4]
+            p4.text = f"Căn cứ hồ sơ quyết toán công trình: {ten}."
+            for r in p4.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(13)
+
+        if len(doc.paragraphs) > 7:
+            p7 = doc.paragraphs[7]
+            p7.text = f"Tên công trình: {ten}."
+            for r in p7.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(13)
+
+        if len(doc.paragraphs) > 9 and ghi_chu:
+            doc.paragraphs[9].text = f"Phương thức chọn thầu thực hiện: {ghi_chu}"
+            for r in doc.paragraphs[9].runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(13)
+
+        if len(doc.paragraphs) > 11 and so_hd:
+            doc.paragraphs[11].text = f"{so_hd}."
+            for r in doc.paragraphs[11].runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(13)
+
+        if len(doc.paragraphs) > 15 and don_vi_th:
+            doc.paragraphs[15].text = f"{don_vi_th}."
+            for r in doc.paragraphs[15].runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(13)
+
+        if len(doc.paragraphs) > 22:
+            _set_aligned_cost_line(doc.paragraphs[19], "- Số dự toán", _fmt_money_dot(sc_dt), False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[20], "- Số quyết toán", _fmt_money_dot(sc_qt), False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[21], "- Số thẩm tra", _fmt_money_dot(sc_qt), False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[22], "- Số chênh lệch TTr/QT", "0", False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+
+        if len(doc.paragraphs) > 27:
+            _set_aligned_cost_line(doc.paragraphs[24], "- Số dự toán", _fmt_money_dot(tb_dt), False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[25], "- Số quyết toán", _fmt_money_dot(tb_qt), False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[26], "- Số thẩm tra", _fmt_money_dot(tb_qt), False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[27], "- Số chênh lệch TTr/QT", "0", False, "đồng.", left_pt=35.45, colon_pt=177.2, right_pt=340.2, font_size=Pt(13))
+
+        if len(doc.tables) > 1 and len(doc.tables[1].rows) > 8:
+            t1 = doc.tables[1]
+            if ktcb_list:
+                for idx_k, k_item in enumerate(ktcb_list[:7]):
+                    row_idx = idx_k + 1
+                    if row_idx < len(t1.rows) - 1:
+                        rk = t1.rows[row_idx]
+                        rk.cells[0].paragraphs[0].text = str(k_item.get('name', ''))
+                        rk.cells[1].paragraphs[0].text = _fmt_money_dot(k_item.get('dt', 0))
+                        rk.cells[2].paragraphs[0].text = _fmt_money_dot(k_item.get('qt', 0))
+                        rk.cells[3].paragraphs[0].text = _fmt_money_dot(k_item.get('tt', k_item.get('qt', 0)))
+                        rk.cells[4].paragraphs[0].text = _fmt_money_dot(k_item.get('diff', 0))
+            r8 = t1.rows[8]
+            r8.cells[1].paragraphs[0].text = _fmt_money_dot(tot_ktcb_dt)
+            r8.cells[2].paragraphs[0].text = _fmt_money_dot(tot_ktcb_qt)
+            r8.cells[3].paragraphs[0].text = _fmt_money_dot(tot_ktcb_qt)
+            r8.cells[4].paragraphs[0].text = "0"
+            for c in r8.cells:
+                for p in c.paragraphs:
+                    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                    for r in p.runs:
+                        r.font.name = "Times New Roman"
+                        r.font.size = Pt(12)
+                        r.bold = True
+            r8.cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+        if len(doc.paragraphs) > 33:
+            p33 = doc.paragraphs[33]
+            p33.text = f"Sau khi xem xét thẩm tra hồ sơ, tổ thẩm tra quyết toán chấp thuận tổng giá trị quyết toán công trình nêu trên là: {_fmt_money_dot(tong_qt)} đồng, cụ thể:"
+            for r in p33.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(13)
+
+        if len(doc.paragraphs) > 43:
+            _set_aligned_cost_line(doc.paragraphs[35], "Chi phí Sửa chữa", _fmt_money_dot(sc_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[36], "Chi phí vật tư, thiết bị", _fmt_money_dot(tb_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[37], "Chi phí KTCB khác", _fmt_money_dot(khac_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[39], "Tổng giá trị trước thuế", _fmt_money_dot(truoc_thue), True, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[40], "Thuế GTGT", _fmt_money_dot(thue_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[41], "Tổng giá trị Quyết toán", _fmt_money_dot(tong_qt), True, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[42], "Chi phí vật tư thu hồi", _fmt_money_dot(vtth_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[43], "Chi phí sửa chữa lớn", _fmt_money_dot(scl_qt), True, "đồng", font_size=Pt(13))
+
+        _format_paragraphs_and_tables(doc, doc_type="bctt")
+        buf = BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    # Fallback nếu không có file mẫu
+    doc = DocxDocument()
+    _enforce_page_setup(doc, top_cm=2.0, bottom_cm=1.5, left_cm=2.5, right_cm=2.0)
 
     # Header 2 cột
     table_hdr = doc.add_table(rows=1, cols=2)
@@ -808,6 +1104,7 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
     r_name = p_r4.add_run("Trần Thanh Hải")
     r_name.bold = True
 
+    _format_paragraphs_and_tables(doc, doc_type="bctt")
     _apply_font(doc)
     buf = BytesIO()
     doc.save(buf)
@@ -819,13 +1116,6 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
 # (Khớp y chang file HS_mau/Quyết định phê duyệt quyết toán CT SCL-VTAD2607001.doc)
 # ============================================================
 def export_qd_phe_duyet_word(main_row, ct_data, thqt_data=None):
-    doc = DocxDocument()
-    for sec in doc.sections:
-        sec.top_margin = Inches(0.8)
-        sec.bottom_margin = Inches(0.8)
-        sec.left_margin = Inches(1.0)
-        sec.right_margin = Inches(0.8)
-
     ten = str(main_row.get('Tên Công trình', '')) if main_row is not None else ''
     ma = str(main_row.get('Mã CT', '')) if main_row is not None and pd.notna(main_row.get('Mã CT')) else ''
     so_dt = str(main_row.get('Số Dự toán', '')) if main_row is not None and pd.notna(main_row.get('Số Dự toán')) else '135/QĐ-PCVT'
@@ -863,6 +1153,101 @@ def export_qd_phe_duyet_word(main_row, ct_data, thqt_data=None):
         bang_chu = doc_so_vn(scl_qt)
 
     now_year = datetime.date.today().year
+
+    # Kiểm tra xem có file mẫu trong HS_mau không
+    tmpl_path = os.path.join(BASE_DIR, 'HS_mau', 'Quyet_dinh_mau.docx')
+    if not os.path.exists(tmpl_path):
+        tmpl_path = os.path.join(BASE_DIR, 'HS_mau', 'Quyết định phê duyệt quyết toán.docx')
+    if os.path.exists(tmpl_path):
+        doc = DocxDocument(tmpl_path)
+        _enforce_page_setup(doc, top_cm=2.0, bottom_cm=2.0, left_cm=2.5, right_cm=2.0)
+
+        if len(doc.tables) > 0 and len(doc.tables[0].rows) > 4:
+            r4c1 = doc.tables[0].cell(4, 1).paragraphs[0]
+            r4c1.text = f"Vũng Tàu, ngày     tháng      năm  {now_year}"
+            for r in r4c1.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(11)
+                r.italic = True
+
+        if len(doc.paragraphs) > 5:
+            p5 = doc.paragraphs[5]
+            p5.text = f"\tTên công trình: {ten}"
+            for r in p5.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(12)
+
+        if len(doc.paragraphs) > 6:
+            p6 = doc.paragraphs[6]
+            p6.text = f"\tMã công trình: {ma}"
+            for r in p6.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(12)
+
+        if len(doc.paragraphs) > 8:
+            p8 = doc.paragraphs[8]
+            p8.text = f"\tKế hoạch vốn năm: {now_year}"
+            for r in p8.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(12)
+
+        if len(doc.paragraphs) > 13:
+            p13 = doc.paragraphs[13]
+            p13.text = f"Căn cứ  quyết định số {so_dt} ngày {ngay_dt} về việc phê duyệt bổ sung danh mục công trình và điều hòa kế hoạch vốn sửa chữa lớn năm {now_year} của Công ty Điện lực Vũng Tàu;"
+            for r in p13.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(12)
+
+        if len(doc.paragraphs) > 14:
+            p14 = doc.paragraphs[14]
+            p14.text = f"Căn cứ hồ sơ quyết toán công trình: {ten}."
+            for r in p14.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(12)
+
+        if len(doc.paragraphs) > 19:
+            p19 = doc.paragraphs[19]
+            p19.text = ""
+            r1 = p19.add_run(f"\tCông trình: {ten} với tổng giá trị công trình: ")
+            r1.font.name = "Times New Roman"
+            r1.font.size = Pt(13)
+            r2 = p19.add_run(f"{_fmt_money_dot(tong_qt)} đồng.")
+            r2.font.name = "Times New Roman"
+            r2.font.size = Pt(13)
+            r2.bold = True
+
+        if len(doc.paragraphs) > 20:
+            p20 = doc.paragraphs[20]
+            p20.text = f"(Bằng chữ: {bang_chu})."
+            for r in p20.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(13)
+
+        if len(doc.paragraphs) > 30:
+            _set_aligned_cost_line(doc.paragraphs[22], "Chi phí Sửa chữa", _fmt_money_dot(sc_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[23], "Chi phí vật tư, thiết bị", _fmt_money_dot(tb_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[24], "Chi phí KTCB khác", _fmt_money_dot(khac_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[26], "Tổng giá trị trước thuế", _fmt_money_dot(truoc_thue), True, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[27], "Thuế GTGT", _fmt_money_dot(thue_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[28], "Tổng giá trị Quyết toán", _fmt_money_dot(tong_qt), True, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[29], "Chi phí vật tư thu hồi", _fmt_money_dot(vtth_qt), False, "đồng.", font_size=Pt(13))
+            _set_aligned_cost_line(doc.paragraphs[30], "Chi phí sửa chữa lớn", _fmt_money_dot(scl_qt), True, "đồng", font_size=Pt(13))
+
+        if len(doc.paragraphs) > 33:
+            p33 = doc.paragraphs[33]
+            p33.text = f"\tNguồn vốn: Sửa chữa lớn năm {now_year} của Công ty Điện lực Vũng Tàu."
+            for r in p33.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(12)
+
+        _format_paragraphs_and_tables(doc, doc_type="qd")
+        buf = BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    # Fallback nếu không có file mẫu
+    doc = DocxDocument()
+    _enforce_page_setup(doc, top_cm=2.0, bottom_cm=2.0, left_cm=2.5, right_cm=2.0)
 
     # Tiêu ngữ (5 rows x 2 cols giống HS_mau)
     table_hdr = doc.add_table(rows=5, cols=2)
@@ -999,6 +1384,7 @@ def export_qd_phe_duyet_word(main_row, ct_data, thqt_data=None):
     r_gdn = c_gd_p.add_run("Nguyễn Ngọc Tuyến")
     r_gdn.bold = True
 
+    _format_paragraphs_and_tables(doc, doc_type="qd")
     _apply_font(doc)
     buf = BytesIO()
     doc.save(buf)
