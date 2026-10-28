@@ -11,6 +11,7 @@ from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot, _format_date_vn)
 from github_helper import gh_list_files, gh_upload_file, gh_delete_file, gh_upload_root_file, has_token
+from thqt_parser import parse_thqt_excel, save_thqt_cache, load_thqt_cache
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
@@ -27,7 +28,11 @@ st.markdown("""<style>
 html,body,.stApp{font-family:'Inter',sans-serif}
 .material-symbols-rounded, [data-testid="stIconMaterial"], .stIcon { font-family: 'Material Symbols Rounded', sans-serif !important; }
 .block-container{padding-top:1rem}
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#1565C0 0%,#1976D2 40%,#2196F3 100%)}
+/* Sidebar Background: Deep Industrial Navy Gradient */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #091e3a 0%, #0f325e 35%, #14437d 70%, #1a569e 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
 [data-testid="stSidebar"] .stMarkdown h1,
 [data-testid="stSidebar"] .stMarkdown h2,
 [data-testid="stSidebar"] .stMarkdown h3,
@@ -35,32 +40,92 @@ html,body,.stApp{font-family:'Inter',sans-serif}
 [data-testid="stSidebar"] .stMarkdown p,
 [data-testid="stSidebar"] .stMarkdown span,
 [data-testid="stSidebar"] label {color:#ffffff!important}
-[data-testid="stSidebar"] div[role="radiogroup"] {gap: 8px;}
+
+/* 3D Hộp Nối Chassis / Panel Frame */
+[data-testid="stSidebar"] div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 14px 10px !important;
+    background: linear-gradient(180deg, rgba(5, 16, 32, 0.7) 0%, rgba(10, 26, 50, 0.55) 100%) !important;
+    border-radius: 16px !important;
+    border-top: 1.5px solid rgba(255, 255, 255, 0.15) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.3) !important;
+    border-bottom: 3px solid rgba(0, 0, 0, 0.6) !important;
+    box-shadow: inset 0 3px 12px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* 3D Modular Block (Hộp Nối 3D Thiết bị) */
 [data-testid="stSidebar"] div[role="radiogroup"] > label {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-    padding: 12px 15px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
+    position: relative !important;
+    background: linear-gradient(180deg, #1b4982 0%, #133966 50%, #0c2747 100%) !important;
+    border-top: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+    border-left: 1.5px solid rgba(255, 255, 255, 0.15) !important;
+    border-right: 1.5px solid rgba(0, 0, 0, 0.35) !important;
+    border-bottom: 4px solid #07172b !important;
+    border-radius: 11px !important;
+    padding: 12px 14px !important;
+    cursor: pointer !important;
+    transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: flex !important;
+    align-items: center !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.4) !important;
 }
-[data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] {
-    background: #ffffff;
-    border-left: 5px solid #ff9800;
-}
-[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] p {
-    color: #1565C0 !important;
+
+/* Typography inside 3D Box */
+[data-testid="stSidebar"] div[role="radiogroup"] > label p,
+[data-testid="stSidebar"] div[role="radiogroup"] > label span {
+    color: #e2e8f0 !important;
     font-weight: 700 !important;
+    font-size: 12px !important;
+    letter-spacing: 0.3px !important;
+    line-height: 1.35 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+    margin: 0 !important;
 }
+
+/* 3D Hover Effect */
+[data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
+    background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 50%, #163e8c 100%) !important;
+    transform: translateY(-2px) !important;
+    border-top: 1.5px solid rgba(255, 255, 255, 0.65) !important;
+    border-bottom: 5px solid #091a35 !important;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45), 0 0 15px rgba(37, 99, 235, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+
+[data-testid="stSidebar"] div[role="radiogroup"] > label:hover p {
+    color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* 3D Press Effect */
+[data-testid="stSidebar"] div[role="radiogroup"] > label:active {
+    transform: translateY(2px) !important;
+    border-bottom: 1.5px solid #07172b !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 2px 5px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 3D Active / Selected State (Khối hộp nổi bật / Đèn nguồn Amber sáng) */
+[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #e2e8f0 100%) !important;
+    border-top: 2px solid #ffffff !important;
+    border-left: 6px solid #f59e0b !important;
+    border-right: 1.5px solid #cbd5e1 !important;
+    border-bottom: 4px solid #94a3b8 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), 0 0 16px rgba(245, 158, 11, 0.35), inset 0 2px 0 #ffffff, inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] p,
+[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] span {
+    color: #0b2246 !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
+}
+
 [data-testid="stSidebar"] div[role="radiogroup"] div[data-testid="stMarkdownContainer"] {
-    margin-left: 5px;
+    margin-left: 4px;
 }
 [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
     display: none;
@@ -187,10 +252,46 @@ body{margin:0;padding:12px;background:#f0f2f6;font-family:'Times New Roman',seri
 .a4-preview p{margin:0 0 4pt 0;text-align:justify;}
 .a4-preview table{width:100%;border-collapse:collapse;margin:8pt 0;}
 .a4-preview td,.a4-preview th{padding:5pt;vertical-align:top;}
+/* Bảng số liệu chi phí ngay hàng thẳng lối 100% chuẩn mẫu */
+.cost-table { width: auto !important; border: none !important; margin: 4pt 0 6pt 35px !important; border-collapse: collapse !important; }
+.cost-table tr { border: none !important; }
+.cost-table td { border: none !important; padding: 1.5pt 0 !important; vertical-align: middle !important; font-family: 'Times New Roman', serif !important; font-size: 13pt !important; }
+.cost-table td.col-lbl { white-space: nowrap !important; text-align: left !important; }
+.cost-table td.col-colon { width: 24px !important; text-align: center !important; padding: 1.5pt 12px !important; }
+.cost-table td.col-val { text-align: right !important; white-space: nowrap !important; font-variant-numeric: tabular-nums !important; }
+.cost-table td.col-unit { text-align: left !important; white-space: nowrap !important; padding-left: 8px !important; width: 60px !important; }
 </style>
 """
 def wrap_preview_html(body_html):
     return f"<!DOCTYPE html><html><head><meta charset='utf-8'>{A4_CSS}</head><body>{body_html}</body></html>"
+
+def _render_cost_table_html(items, indent_px=35, label_min_width=210):
+    """
+    Hiển thị khối số liệu chi phí 'ngay hàng thẳng lối' 100% chuẩn đẹp chuyên nghiệp:
+    - Nhãn căn lề trái (min-width cố định để colon gióng thẳng tắp)
+    - Dấu hai chấm (:) căn giữa hoàn toàn trong ô riêng
+    - Số tiền căn lề phải (tabular-nums để các chữ số gióng thẳng tắp)
+    - Đơn vị tính (đồng. / đồng) thẳng hàng ngay bên phải số tiền
+    """
+    rows = []
+    for item in items:
+        lbl, val, is_bold = item[0], item[1], item[2]
+        unit = item[3] if len(item) > 3 else "đồng."
+        b_s = "<b>" if is_bold else ""
+        b_e = "</b>" if is_bold else ""
+        rows.append(
+            f'<tr>'
+            f'<td class="col-lbl" style="min-width:{label_min_width}px;">{b_s}{lbl}{b_e}</td>'
+            f'<td class="col-colon">{b_s}:{b_e}</td>'
+            f'<td class="col-val">{b_s}{val}{b_e}</td>'
+            f'<td class="col-unit">{b_s}{unit.strip()}{b_e}</td>'
+            f'</tr>'
+        )
+    return (
+        f'<table class="cost-table" style="margin-left:{indent_px}px !important;">'
+        + "".join(rows)
+        + '</table>'
+    )
 
 def status_color(s):
     m={'Đang thi công':'#22c55e','Lập PAKT-Tổng dự toán':'#f59e0b',
@@ -244,8 +345,14 @@ with st.sidebar:
     st.markdown('<p class="sidebar-logo" style="font-size: 28px !important; line-height: 1.3; margin-bottom: 5px;">Công ty Điện lực Vũng Tàu</p>',unsafe_allow_html=True)
     st.divider()
     page=st.radio("📂 Chuyên mục",
-        ["📊 Tổng quan","⚖️ Kiểm dò pháp lý & Thanh toán","📋 Bảng tổng hợp QT","📝 Tờ trình duyệt QT","📄 Thuyết minh QT",
-         "🔍 Phiếu thẩm tra","📜 Báo cáo thẩm tra","📜 Quyết định phê duyệt"],
+        [
+            "📊 TỔNG QUAN",
+            "📁 KIỂM TRA HỒ SƠ",
+            "📋 BẢNG TỔNG HỢP QUYẾT TOÁN",
+            "📝 TỜ TRÌNH DUYỆT QUYẾT TOÁN DANH MỤC SCL",
+            "📜 BÁO CÁO THẨM TRA",
+            "⚖️ QUYẾT ĐỊNH PHÊ DUYỆT QUYẾT TOÁN"
+        ],
         label_visibility="collapsed")
     st.divider()
     st.caption(f"Cập nhật: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
@@ -255,19 +362,26 @@ with st.sidebar:
 # ── Chọn CT helper ──
 def _select_ct(key, container=None):
     if container is None: container = st
-    names=[]
-    for _,r in df_th.iterrows():
-        ma=str(r.get('Mã CT','')).strip();ten=str(r.get('Tên công trình','')).strip()
+    names = []
+    default_idx = 0
+    cur_selected_ma = st.session_state.get('selected_ma_ct', '')
+    for idx, (_, r) in enumerate(df_th.iterrows()):
+        ma = str(r.get('Mã CT', '')).strip()
+        ten = str(r.get('Tên công trình', '')).strip()
         names.append(f"{ma} - {ten}")
-    sel=container.selectbox("Chọn công trình:",names,key=key)
-    if not sel:return None,None,None,pd.DataFrame()
-    ma=sel.split(" - ")[0].strip()
-    ri=df_th[df_th['Mã CT']==ma].index
-    if len(ri)==0:return None,None,None,pd.DataFrame()
-    row_th=df_th.loc[ri[0]]
-    ten=str(row_th.get('Tên công trình',''))
-    mr,cd=get_project_section(db_df,ten,ma) if not db_df.empty else (None,pd.DataFrame())
-    return row_th,mr,ten,cd
+        if cur_selected_ma and ma == cur_selected_ma:
+            default_idx = idx
+
+    sel = container.selectbox("Chọn công trình:", names, index=default_idx, key=key)
+    if not sel: return None, None, None, pd.DataFrame()
+    ma = sel.split(" - ")[0].strip()
+    st.session_state['selected_ma_ct'] = ma
+    ri = df_th[df_th['Mã CT'] == ma].index
+    if len(ri) == 0: return None, None, None, pd.DataFrame()
+    row_th = df_th.loc[ri[0]]
+    ten = str(row_th.get('Tên công trình', ''))
+    mr, cd = get_project_section(db_df, ten, ma) if not db_df.empty else (None, pd.DataFrame())
+    return row_th, mr, ten, cd
 
 def shorten_name(name):
     n = str(name).lower()
@@ -281,14 +395,11 @@ def shorten_name(name):
     return name
 
 # ── GLOBAL HEADER ──
-header_container = st.container()
-
-with header_container:
-    st.markdown('<div class="header-content-wrapper"></div>', unsafe_allow_html=True)
-    st.markdown('<h1 class="main-title">HỆ THỐNG QUẢN LÝ QUYẾT TOÁN SỬA CHỮA LỚN</h1>', unsafe_allow_html=True)
+st.markdown('<div class="header-content-wrapper"></div>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">HỆ THỐNG QUẢN LÝ QUYẾT TOÁN SỬA CHỮA LỚN</h1>', unsafe_allow_html=True)
 
 # ── PAGE 1: TỔNG QUAN ──
-if page=="📊 Tổng quan":
+if "TỔNG QUAN" in page:
     if df_th.empty:
         st.warning("Chưa có dữ liệu Tổng hợp.xlsx")
     else:
@@ -305,77 +416,12 @@ if page=="📊 Tổng quan":
         total_th = sum(sum(m_data.values()) for m_data in pm_monthly_all.values())
         ty_le = (total_th/total_kh*100) if total_kh>0 else 0
 
-        with header_container:
-            c1,c2,c3,c4=st.columns(4)
-            for col,lbl,val in [(c1,"TỔNG SỐ CÔNG TRÌNH",str(total_ct)),
-                (c2,"TỔNG KHÁI TOÁN",fmt_money(total_kh)),
-                (c3,"TỔNG THỰC HIỆN",fmt_money(total_th)),
-                (c4,"TỶ LỆ GIẢI NGÂN",f"{ty_le:.1f}%")]:
-                col.markdown(f'<div class="metric-card"><div class="metric-label">{lbl}</div><div class="metric-val">{val}</div></div>',unsafe_allow_html=True)
-
-        # ── CẬP NHẬT DỮ LIỆU NHANH ──
-        with st.expander("📤 Cập nhật dữ liệu báo cáo (CapNhatTienDo.xlsx / PM_092.xlsx)", expanded=False):
-            up_col1, up_col2 = st.columns(2)
-            with up_col1:
-                st.markdown('**📋 File Tiến độ** (`CapNhatTienDo.xlsx`)')
-                up_tiendo = st.file_uploader(
-                    "Chọn file CapNhatTienDo.xlsx mới",
-                    type=['xlsx','xls'],
-                    key='up_capnhat_td',
-                    label_visibility='collapsed'
-                )
-                if up_tiendo:
-                    with st.spinner("Đang cập nhật CapNhatTienDo.xlsx..."):
-                        ok = gh_upload_root_file('CapNhatTienDo.xlsx', up_tiendo.getvalue())
-                    if ok:
-                        st.success("✅ Đã cập nhật CapNhatTienDo.xlsx thành công!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error("❌ Lỗi khi cập nhật file.")
-            with up_col2:
-                st.markdown('**💰 File PM_092** (`PM_092.xlsx`)')
-                up_pm092 = st.file_uploader(
-                    "Chọn file PM_092.xlsx mới",
-                    type=['xlsx','xls'],
-                    key='up_pm092',
-                    label_visibility='collapsed'
-                )
-                if up_pm092:
-                    with st.spinner("Đang cập nhật PM_092.xlsx..."):
-                        ok = gh_upload_root_file('PM_092.xlsx', up_pm092.getvalue())
-                    if ok:
-                        st.success("✅ Đã cập nhật PM_092.xlsx thành công!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error("❌ Lỗi khi cập nhật file.")
-
-        # Health analysis
-        now=datetime.datetime.now();cy,cm=now.year,now.month
-        hd_list=[]
-        for _,r in df_th.iterrows():
-            hs,hi,hins,gn_rate=analyze_health(r,cy,cm)
-            hd_list.append({'Mã CT':r.get('Mã CT',''),'Tên công trình':r.get('Tên công trình',''),
-                'Sức khỏe':f"{hi} {hs}",'Đánh giá':hins, 'Tỷ lệ GN': gn_rate, '_s':hs})
-        df_h=pd.DataFrame(hd_list)
-        if 'Tên công trình' in df_h.columns:
-            df_h['Tên công trình'] = df_h['Tên công trình'].apply(shorten_name)
-
-        st.markdown('<p class="section-title">🚨 Đánh giá & Cảnh báo rủi ro</p>',unsafe_allow_html=True)
-        with st.container(border=True):
-            r1,r2,r3,r4=st.columns(4)
-            r1.metric("🟢 Hoàn thành",len(df_h[df_h['_s']=='Hoàn thành']))
-            r2.metric("🔵 Bình thường",len(df_h[df_h['_s']=='Bình thường']))
-            r3.metric("🟡 Nguy cơ",len(df_h[df_h['_s']=='Nguy cơ']))
-            r4.metric("🔴 Quá hạn/Trễ",len(df_h[df_h['_s'].isin(['Quá hạn','Trễ tiến độ'])]))
-            
-            st.dataframe(df_h.drop(columns=['_s']),hide_index=True,width='stretch',
-                         column_config={
-                             'Tỷ lệ GN': st.column_config.ProgressColumn(
-                                 format="%.1f%%", min_value=0, max_value=100
-                             )
-                         })
+        c1, c2, c3, c4 = st.columns(4)
+        for col,lbl,val in [(c1,"TỔNG SỐ CÔNG TRÌNH",str(total_ct)),
+            (c2,"TỔNG KHÁI TOÁN",fmt_money(total_kh)),
+            (c3,"TỔNG THỰC HIỆN",fmt_money(total_th)),
+            (c4,"TỶ LỆ GIẢI NGÂN",f"{ty_le:.1f}%")]:
+            col.markdown(f'<div class="metric-card"><div class="metric-label">{lbl}</div><div class="metric-val">{val}</div></div>',unsafe_allow_html=True)
 
         # ── BẢNG A: CẬP NHẬT TIẾN ĐỘ ──
         st.markdown('<p class="section-title">📋 Cập nhật tiến độ thực hiện SCL</p>',unsafe_allow_html=True)
@@ -531,12 +577,12 @@ if page=="📊 Tổng quan":
 
 
 
-# ── PAGE: KIỂM DÒ PHÁP LÝ & ĐIỀU KIỆN THANH TOÁN ──
-elif page=="⚖️ Kiểm dò pháp lý & Thanh toán":
-    st.markdown('<p class="page-title">⚖️ BỘ LỌC KIỂM DÒ PHÁP LÝ & ĐIỀU KIỆN THANH QUYẾT TOÁN SCL</p>', unsafe_allow_html=True)
+# ── PAGE 2: KIỂM TRA HỒ SƠ & PHÁP LÝ ──
+elif "KIỂM TRA HỒ SƠ" in page:
+    st.markdown('<p class="page-title">📁 KIỂM TRA HỒ SƠ & BỘ LỌC PHÁP LÝ THANH QUYẾT TOÁN SCL</p>', unsafe_allow_html=True)
     st.caption("Căn cứ: QĐ 202/QĐ-HĐTV (EVNHCMC) • TTr 1093/KTAT • Thông báo 2902/TB-PCVT • Nghị định 123/2020/NĐ-CP • Luật Đấu thầu 2023")
     
-    row_th, mr, ten, cd = _select_ct("p_legal_sel", header_container)
+    row_th, mr, ten, cd = _select_ct("global_project_sel")
     if row_th is not None:
         ma_ct = str(row_th.get('Mã CT', '')).strip()
         from dossier_scanner import find_project_folder, scan_and_update_project, load_cached_scan_result
@@ -634,216 +680,191 @@ elif page=="⚖️ Kiểm dò pháp lý & Thanh toán":
                 st.info("Chưa có tệp scan nào trong thư mục công trình.")
 
 
-# ── PAGE 2: BẢNG TỔNG HỢP QT ──
-elif page=="📋 Bảng tổng hợp QT":
-    st.markdown('<p class="page-title">📋 Bảng tổng hợp quyết toán kinh phí SCL</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p2_sel", header_container)
+
+# ── PAGE 3: BẢNG TỔNG HỢP QUYẾT TOÁN ──
+elif "BẢNG TỔNG HỢP QUYẾT TOÁN" in page:
+    st.markdown('<p class="page-title">📋 BẢNG TỔNG HỢP QUYẾT TOÁN KINH PHÍ SCL</p>', unsafe_allow_html=True)
+    st.caption("Trích xuất và quản lý toàn diện 44 chỉ tiêu chi phí theo biểu mẫu chuẩn của EVNHCMC và Công ty Điện lực Vũng Tàu.")
+
+    row_th, mr, ten, cd = _select_ct("global_project_sel")
     if row_th is not None:
         ma_ct = str(row_th.get('Mã CT', '')).strip()
 
-        # ── KHUNG TỰ ĐỘNG QUÉT & CẬP NHẬT TỪ HỒ SƠ CÔNG TRÌNH ──
+        # Upload file khu vực
         with st.container(border=True):
-            col_info, col_btn = st.columns([3, 1])
+            col_up, col_info = st.columns([2, 3])
+            with col_up:
+                uploaded_thqt = st.file_uploader(
+                    "📤 Tải lên file Bảng THQT (.xlsx / .xls)",
+                    type=["xlsx", "xls"],
+                    key=f"uploader_thqt_{ma_ct}",
+                    help="Chọn file Excel Bảng THQT kinh phí SCL đã điền số liệu quyết toán"
+                )
             with col_info:
-                from dossier_scanner import find_project_folder
-                p_folder = find_project_folder(ma_ct, ten)
-                if p_folder and os.path.exists(p_folder):
-                    rel_p = os.path.relpath(p_folder, BASE_DIR)
-                    st.markdown(f"📁 **Thư mục hồ sơ liên kết:** `{rel_p}` ✅")
-                    st.caption(f"Công trình: **{ma_ct} - {ten}**. Bấm nút bên phải để quét dữ liệu tự động.")
-                else:
-                    st.markdown(f"📁 **Thư mục hồ sơ:** Chưa tìm thấy thư mục cho **{ma_ct}** ⚠️")
-                    st.caption(f"💡 Anh hãy tạo thư mục: `Ho_so_cong_trinh/{ma_ct}` hoặc `Ho_so_cong_trinh/{ten}` và chép hồ sơ vào đó.")
-            with col_btn:
-                scan_btn = st.button("🚀 Quét hồ sơ & Cập nhật", type="primary", use_container_width=True, key=f"btn_scan_{ma_ct}")
+                st.markdown("**Hướng dẫn:**")
+                st.markdown(
+                    "- Khi công trình hoàn tất, anh tải file **Bảng THQT KP SCL (.xlsx)** lên tại đây.<br>"
+                    "- Hệ thống sẽ **tự động bóc tách toàn bộ 44 danh mục chi phí**, tính toán các số liệu và **tự động điền đồng bộ vào 3 mẫu**:<br>"
+                    "&nbsp;&nbsp;+ *Tờ trình duyệt quyết toán danh mục SCL*<br>"
+                    "&nbsp;&nbsp;+ *Báo cáo thẩm tra quyết toán*<br>"
+                    "&nbsp;&nbsp;+ *Quyết định phê duyệt quyết toán*",
+                    unsafe_allow_html=True
+                )
 
-            if scan_btn:
-                with st.spinner("🔄 Đang quét toàn bộ tài liệu hồ sơ và đối soát quy định 202/QĐ-HĐTV..."):
-                    from dossier_scanner import scan_and_update_project
-                    res_scan = scan_and_update_project(ma_ct, ten)
-                    st.session_state[f"scan_res_{ma_ct}"] = res_scan
+        if uploaded_thqt is not None:
+            try:
+                raw_bytes = uploaded_thqt.getvalue()
+                parsed_res = parse_thqt_excel(raw_bytes)
+                save_thqt_cache(ma_ct, parsed_res, raw_bytes)
+                st.session_state[f'thqt_{ma_ct}'] = parsed_res
+                st.toast("✅ Đã nạp và lưu dữ liệu Bảng THQT thành công!", icon="🎉")
+            except Exception as e:
+                st.error(f"Lỗi khi đọc file Excel: {e}")
+
+        # Lấy dữ liệu từ session hoặc cache
+        thqt_data = st.session_state.get(f'thqt_{ma_ct}')
+        if not thqt_data:
+            thqt_data = load_thqt_cache(ma_ct)
+            if thqt_data:
+                st.session_state[f'thqt_{ma_ct}'] = thqt_data
+
+        if thqt_data and "summary" in thqt_data:
+            sm = thqt_data["summary"]
+            
+            # 4 Thẻ chỉ số chính
+            c1, c2, c3, c4 = st.columns(4)
+            c1.markdown(f'<div class="metric-card"><div class="metric-label">Chi phí Sửa chữa (Trước thuế)</div><div class="metric-val">{_fmt_money_dot(sm["sc_qt"])} đ</div><div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:4px;">Dự toán: {_fmt_money_dot(sm["sc_dt"])} đ</div></div>', unsafe_allow_html=True)
+            c2.markdown(f'<div class="metric-card"><div class="metric-label">Chi phí KTCB khác</div><div class="metric-val">{_fmt_money_dot(sm["khac_qt"])} đ</div><div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:4px;">Dự toán: {_fmt_money_dot(sm["khac_dt"])} đ</div></div>', unsafe_allow_html=True)
+            c3.markdown(f'<div class="metric-card"><div class="metric-label">Thuế GTGT</div><div class="metric-val">{_fmt_money_dot(sm["thue_qt"])} đ</div><div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:4px;">Dự toán: {_fmt_money_dot(sm["thue_dt"])} đ</div></div>', unsafe_allow_html=True)
+            c4.markdown(f'<div class="metric-card"><div class="metric-label">Tổng giá trị Quyết toán</div><div class="metric-val">{_fmt_money_dot(sm["tong_qt"])} đ</div><div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:4px;">Bằng chữ: {sm["bang_chu"]}</div></div>', unsafe_allow_html=True)
+
+            st.write("")
+            c_sub1, c_sub2, c_sub3, c_sub4 = st.columns(4)
+            c_sub1.info(f"⚙️ **Chi phí thiết bị, VT:** `{_fmt_money_dot(sm['tb_qt'])} đ` (DT: `{_fmt_money_dot(sm['tb_dt'])} đ`)")
+            c_sub2.info(f"💵 **Tổng trước thuế:** `{_fmt_money_dot(sm['truoc_thue_qt'])} đ` (DT: `{_fmt_money_dot(sm['truoc_thue_dt'])} đ`)")
+            c_sub3.warning(f"🔄 **Vật tư thu hồi:** `{_fmt_money_dot(sm['vtth_qt'])} đ` (DT: `{_fmt_money_dot(sm['vtth_dt'])} đ`)")
+            c_sub4.success(f"⚡ **Chi phí SCL thực tế:** `{_fmt_money_dot(sm['scl_qt'])} đ` (DT: `{_fmt_money_dot(sm['scl_dt'])} đ`)")
+
+            st.markdown('<p class="section-title">📊 Chi tiết toàn bộ 44 danh mục chi phí (Bảng THQT KP SCL)</p>', unsafe_allow_html=True)
+            
+            # Render HTML Table 44 rows
+            rows_html = ""
+            for item in thqt_data.get("rows_data", []):
+                r_name = item["name"]
+                is_bold = any(k in r_name for k in ["I.", "II.", "III.", "IV.", "V.", "VI.", "VII.", "VIII.", "TỔNG", "CỘNG", "Giá trị dự toán", "Chi phí khác"])
+                style_row = ' class="row-header"' if is_bold else ""
+                
+                rows_html += f'''<tr{style_row}>
+                    <td class="col-ten" style="font-weight:{'700' if is_bold else '400'};">{r_name}</td>
+                    <td class="col-num">{_fmt_money_dot(item['dt']) if item['dt'] > 0 else '-'}</td>
+                    <td class="col-num">{_fmt_money_dot(item['ps_tang']) if item['ps_tang'] > 0 else '-'}</td>
+                    <td class="col-num">{_fmt_money_dot(item['ps_giam']) if item['ps_giam'] > 0 else '-'}</td>
+                    <td class="col-num">{_fmt_money_dot(item['tong_dt']) if item['tong_dt'] > 0 else '-'}</td>
+                    <td class="col-num" style="font-weight:{'700' if is_bold else '400'};color:#1565C0;">{_fmt_money_dot(item['qt']) if item['qt'] > 0 else ('0' if is_bold else '-')}</td>
+                    <td style="font-size:11px;color:#64748b;">{item.get('note', '')}</td>
+                </tr>\n'''
+
+            table_thqt_html = f'''<div class="qt-table-wrapper" style="max-height:600px;overflow-x:auto;">
+            <table class="qt-table" style="min-width:980px;">
+                <thead><tr>
+                    <th style="min-width:320px;">Nội dung chi phí</th>
+                    <th style="min-width:110px;">Dự toán duyệt</th>
+                    <th style="min-width:90px;">PS Tăng</th>
+                    <th style="min-width:90px;">PS Giảm</th>
+                    <th style="min-width:110px;">Tổng DT duyệt</th>
+                    <th style="min-width:120px;">Quyết toán đề nghị</th>
+                    <th style="min-width:100px;">Ghi chú</th>
+                </tr></thead>
+                <tbody>{rows_html}</tbody>
+            </table></div>'''
+            st.markdown(table_thqt_html, unsafe_allow_html=True)
+
+            # Export Excel
+            df_export = pd.DataFrame([{
+                "Nội dung chi phí": it["name"],
+                "Dự toán duyệt": it["dt"],
+                "Phát sinh tăng": it["ps_tang"],
+                "Phát sinh giảm": it["ps_giam"],
+                "Tổng dự toán duyệt": it["tong_dt"],
+                "Quyết toán đề nghị": it["qt"],
+                "Ghi chú": it["note"]
+            } for it in thqt_data.get("rows_data", [])])
+            
+            buf = BytesIO()
+            with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+                df_export.to_excel(writer, index=False, sheet_name='Bang_THQT')
+            safe_name = clean_filename(ten)
+            st.markdown(create_download_link(buf.getvalue(), f"Bang_THQT_{safe_name}.xlsx", "📥 Xuất Excel - Bảng THQT KP SCL", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), unsafe_allow_html=True)
+            
+            st.success("🔗 **Đã liên kết dữ liệu Bảng THQT**: Khi anh chuyển sang tab **'📝 TỜ TRÌNH DUYỆT QT'**, **'📜 BÁO CÁO THẨM TRA'**, hoặc **'⚖️ QUYẾT ĐỊNH PHÊ DUYỆT'**, toàn bộ số liệu trên đã được điền tự động 100%!")
+        else:
+            st.info("💡 Chưa có dữ liệu Bảng THQT cho công trình này. Anh hãy bấm nút **'Browse files'** ở trên để tải file Excel **Bảng THQT KP SCL** vào nhé.")
+            sample_file = os.path.join(BASE_DIR, "HS_mau", "2. Bảng THQT KP SCL.xlsx")
+            if os.path.exists(sample_file):
+                if st.button("📂 Nạp nhanh file Bảng THQT mẫu (HS_mau)", key=f"btn_quick_thqt_{ma_ct}"):
+                    res_sample = parse_thqt_excel(sample_file)
+                    save_thqt_cache(ma_ct, res_sample)
+                    st.session_state[f'thqt_{ma_ct}'] = res_sample
                     st.rerun()
 
-        # Hiển thị kết quả trích xuất & Kiểm tra pháp lý (nạp tức thì từ cache, không quét lại khi mở trang)
-        from dossier_scanner import load_cached_scan_result
-        res_scan = st.session_state.get(f"scan_res_{ma_ct}")
-        if not res_scan:
-            res_scan = load_cached_scan_result(ma_ct)
+# ── PAGE 4: TỜ TRÌNH DUYỆT QUYẾT TOÁN DANH MỤC SCL ──
+elif "TỜ TRÌNH" in page:
+    st.markdown('<p class="page-title">📝 TỜ TRÌNH DUYỆT QUYẾT TOÁN DANH MỤC SCL HOÀN THÀNH</p>', unsafe_allow_html=True)
+    row_th, mr, ten, cd = _select_ct("global_project_sel")
+    if row_th is not None:
+        ma_ct = str(row_th.get('Mã CT', '')).strip()
+        so_dt = str(mr.get('Số Dự toán', '135/QĐ-PCVT')) if mr is not None and pd.notna(mr.get('Số Dự toán')) else '135/QĐ-PCVT'
+        ngay_dt = _format_date_vn(mr.get('Ngày Dự toán')) if mr is not None else '16/03/2026'
+        if '....' in ngay_dt: ngay_dt = '16/03/2026'
+        now = datetime.datetime.now()
 
-        if res_scan:
-            if res_scan.get('success'):
-                up_time = f" *(Cập nhật: {res_scan.get('updated_at', '')})*" if res_scan.get('updated_at') else ""
-                st.success(f"✅ {res_scan.get('message')}{up_time}")
-                t_scan1, t_scan2 = st.tabs(["📊 Số liệu trích xuất từ hồ sơ", "⚖️ Đánh giá tuân thủ quy định (QĐ 202/QĐ-HĐTV)"])
-                with t_scan1:
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        dt_info = res_scan.get('dt_data', {})
-                        st.markdown("**1. Số liệu Dự toán:**")
-                        if dt_info.get('found'):
-                            st.write(f"- Tổng dự toán: **{fmt_full(dt_info.get('tong_dt', 0))}**")
-                            st.write(f"- Vật tư thiết bị: {fmt_full(dt_info.get('chi_phi_vttb', 0))}")
-                            st.write(f"- Sửa chữa: {fmt_full(dt_info.get('chi_phi_sua_chua', 0))}")
-                            st.write(f"- Chi phí khác: {fmt_full(dt_info.get('chi_phi_khac', 0))}")
-                            st.write(f"- Dự phòng: {fmt_full(dt_info.get('chi_phi_du_phong', 0))}")
-                            st.write(f"- Thu hồi: {fmt_full(dt_info.get('chi_phi_thu_hoi', 0))}")
-                            if dt_info.get('so_qd'):
-                                st.caption(f"QĐ: {dt_info['so_qd']} ngày {dt_info.get('ngay_qd', '')}")
-                        else:
-                            st.info("Chưa tìm thấy file Dự toán / QĐ PAKT-DT.")
-
-                    with c2:
-                        qt_info = res_scan.get('qt_data', {})
-                        st.markdown("**2. Số liệu Quyết toán A-B:**")
-                        if qt_info.get('found'):
-                            st.write(f"- Tổng quyết toán: **{fmt_full(qt_info.get('tong_qt', 0))}**")
-                            st.write(f"- Sửa chữa: {fmt_full(qt_info.get('chi_phi_sua_chua', 0))}")
-                            st.write(f"  + Vật liệu: {fmt_full(qt_info.get('vat_lieu', 0))}")
-                            st.write(f"  + Nhân công: {fmt_full(qt_info.get('nhan_cong', 0))}")
-                            st.write(f"  + Thuế GTGT: {fmt_full(qt_info.get('thue_gtgt', 0))}")
-                            st.write(f"- Thu hồi: {fmt_full(qt_info.get('chi_phi_thu_hoi', 0))}")
-                        else:
-                            st.info("Chưa tìm thấy file Quyết toán A-B trong thư mục.")
-
-                    with c3:
-                        ct_info = res_scan.get('contract_data', {})
-                        st.markdown("**3. Hợp đồng & Nhà thầu:**")
-                        if ct_info.get('found'):
-                            st.write(f"- Nhà thầu: **{ct_info.get('nha_thau', '')}**")
-                            st.write(f"- Số HĐ: {ct_info.get('so_hd', '')} (ngày {ct_info.get('ngay_hd', '')})")
-                            st.write(f"- Giá trị HĐ: {fmt_full(ct_info.get('gia_tri_hd', 0))}")
-                            st.write(f"- Hình thức: {ct_info.get('hinh_thuc', 'Thuê ngoài')}")
-                            if ct_info.get('ngay_kc') and ct_info.get('ngay_ht'):
-                                st.write(f"- Tiến độ: {ct_info.get('ngay_kc')} ➔ {ct_info.get('ngay_ht')}")
-                        else:
-                            st.info("Chưa có file Hợp đồng.")
-
-                with t_scan2:
-                    comp = res_scan.get('compliance', {})
-                    if comp:
-                        st.markdown(comp.get('summary', ''))
-                        for chk in comp.get('checks', []):
-                            with st.container(border=True):
-                                st.markdown(f"**{chk['icon']} {chk['title']}** — *({chk['rule']})*")
-                                st.write(chk['detail'])
-                                st.info(f"💡 **Khuyến nghị:** {chk['recommendation']}")
-            else:
-                st.warning(res_scan.get('message', 'Chưa quét được hồ sơ.'))
-
-        st.divider()
-
-        # Bảng quyết toán kinh phí
-        if mr is not None and len(cd)>1:
-            sub=cd.iloc[1:][['STT','Tên Công trình','Giá trị Dự toán','Giá trị Q.định phê duyệt QT công trình']].copy()
-            sub=sub.rename(columns={'Tên Công trình':'Tên Hạng mục','Giá trị Q.định phê duyệt QT công trình':'Giá trị QT'})
-            for c in ['Giá trị Dự toán','Giá trị QT']:
-                sub[c]=pd.to_numeric(sub[c],errors='coerce').fillna(0).astype(int)
-            sub['Chênh lệch']=sub['Giá trị Dự toán']-sub['Giá trị QT']
-            
-            # Xác định dòng header (A, B, C, D, E, F, SCL) và dòng tổng
-            header_stts = {'A','B','C','D','E','F','SCL'}
-            total_stts = {'E','SCL'}
-            
-            # Build custom HTML table
-            html_rows = ''
-            for _, r in sub.iterrows():
-                stt_val = str(r['STT']).strip()
-                ten_hm = str(r['Tên Hạng mục']) if pd.notna(r['Tên Hạng mục']) else ''
-                dt_val = fmt_full(r['Giá trị Dự toán'])
-                qt_val = fmt_full(r['Giá trị QT'])
-                cl_val = fmt_full(r['Chênh lệch'])
-                
-                row_class = ''
-                if stt_val.upper() in total_stts:
-                    row_class = ' class="row-total"'
-                elif stt_val.upper() in header_stts:
-                    row_class = ' class="row-header"'
-                
-                html_rows += f'''<tr{row_class}>
-                    <td class="col-stt">{stt_val}</td>
-                    <td class="col-ten">{ten_hm}</td>
-                    <td class="col-num">{dt_val}</td>
-                    <td class="col-num">{qt_val}</td>
-                    <td class="col-num">{cl_val}</td>
-                </tr>\n'''
-            
-            table_html = f'''<div class="qt-table-wrapper">
-            <table class="qt-table">
-                <thead><tr>
-                    <th>STT</th>
-                    <th>Tên Hạng mục</th>
-                    <th>Giá trị Dự toán</th>
-                    <th>Giá trị QT</th>
-                    <th>Chênh lệch</th>
-                </tr></thead>
-                <tbody>{html_rows}</tbody>
-            </table></div>'''
-            st.markdown(table_html, unsafe_allow_html=True)
-
-            # Xuất Excel
-            buf=BytesIO()
-            with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
-                sub.to_excel(writer, index=False, sheet_name='Quyet_toan')
-                workbook = writer.book
-                worksheet = writer.sheets['Quyet_toan']
-                
-                fmt = workbook.add_format({'font_name': 'Times New Roman', 'font_size': 12, 'border': 1, 'valign': 'vcenter'})
-                fmt_num = workbook.add_format({'font_name': 'Times New Roman', 'font_size': 12, 'border': 1, 'valign': 'vcenter', 'num_format': '#,##0'})
-                fmt_header = workbook.add_format({'font_name': 'Times New Roman', 'font_size': 12, 'bold': True, 'border': 1, 'valign': 'vcenter', 'align': 'center', 'bg_color': '#D9D9D9'})
-                
-                for col_num, value in enumerate(sub.columns.values):
-                    worksheet.write(0, col_num, value, fmt_header)
-                
-                for i, col in enumerate(sub.columns):
-                    if i == 0: width = 6
-                    elif i == 1: width = 50
-                    else: width = 18
-                    worksheet.set_column(i, i, width)
-                    
-                for row in range(len(sub)):
-                    for col in range(len(sub.columns)):
-                        val = sub.iloc[row, col]
-                        if pd.isna(val): val = ""
-                        col_name = sub.columns[col]
-                        if col_name in ['Giá trị Dự toán', 'Giá trị QT', 'Chênh lệch']:
-                            worksheet.write_number(row + 1, col, val, fmt_num)
-                        else:
-                            worksheet.write(row + 1, col, val, fmt)
-
-            safe=clean_filename(ten)
-            st.markdown(create_download_link(buf.getvalue(), f"Quyet_toan_{safe}.xlsx", "📥 Xuất Excel - Bảng quyết toán", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), unsafe_allow_html=True)
+        # Nạp dữ liệu Bảng THQT
+        thqt_data = st.session_state.get(f'thqt_{ma_ct}') or load_thqt_cache(ma_ct)
+        if thqt_data and "summary" in thqt_data:
+            sm = thqt_data["summary"]
+            if thqt_data.get('ten_ct'): ten = thqt_data['ten_ct']
+            if thqt_data.get('ma_ct'): ma_ct = thqt_data['ma_ct']
+            sc_qt = sm.get("sc_qt", 0)
+            tb_qt = sm.get("tb_qt", 0)
+            khac_qt = sm.get("khac_qt", 0)
+            truoc_thue = sm.get("truoc_thue_qt", 0)
+            thue_qt = sm.get("thue_qt", 0)
+            tong_qt = sm.get("tong_qt", 0)
+            vtth_qt = sm.get("vtth_qt", 0)
+            scl_qt = sm.get("scl_qt", 0)
+            bang_chu = sm.get("bang_chu") or doc_so_vn(tong_qt)
+            is_from_thqt = True
         else:
-            st.info("💡 Công trình này chưa có bảng chi tiết quyết toán trong hệ thống. Hãy bấm nút **'🚀 Quét hồ sơ & Cập nhật'** ở trên để hệ thống tự động bóc tách từ hồ sơ và khởi tạo bảng chi tiết!")
+            bd = get_cost_breakdown(cd)
+            scl_qt = bd.get('SCL', {}).get('qt', 0)
+            if scl_qt == 0 and mr is not None and 'Giá trị Q.định phê duyệt QT công trình' in mr:
+                scl_qt = float(mr.get('Giá trị Q.định phê duyệt QT công trình', 0))
+            thue_qt = bd.get('B.8', {}).get('qt', 0)
+            sc_qt = bd.get('B', {}).get('qt', 0)
+            tb_qt = bd.get('A', {}).get('qt', 0)
+            khac_qt = bd.get('C', {}).get('qt', 0)
+            vtth_qt = bd.get('F', {}).get('qt', 0)
+            if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
+            truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
+            tong_qt = scl_qt
+            bang_chu = doc_so_vn(tong_qt)
+            is_from_thqt = False
 
-# ── PAGE: TỜ TRÌNH DUYỆT QT (MẪU MỚI TỪ THAM KHẢO) ──
-elif page=="📝 Tờ trình duyệt QT":
-    st.markdown('<p class="page-title">📝 Tờ trình duyệt quyết toán danh mục SCL hoàn thành</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p_ttr_sel", header_container)
-    if mr is not None:
-        bd=get_cost_breakdown(cd)
-        scl_qt=bd.get('SCL',{}).get('qt',0)
-        if scl_qt==0 and 'Giá trị Q.định phê duyệt QT công trình' in mr:
-            scl_qt=float(mr.get('Giá trị Q.định phê duyệt QT công trình',0))
-        thue_qt=bd.get('B.8',{}).get('qt',0)
-        if thue_qt==0 and scl_qt>0:
-            thue_qt=int(round(scl_qt - scl_qt/1.08))
-        truoc_thue=scl_qt - thue_qt if (scl_qt - thue_qt)>0 else scl_qt
-        bang_chu_truoc_thue=doc_so_vn(truoc_thue)
-        ma=str(mr.get('Mã CT',''))
-        so_dt=str(mr.get('Số Dự toán','135/QĐ-PCVT'))
-        ngay_dt=_format_date_vn(mr.get('Ngày Dự toán'))
-        if '....' in ngay_dt: ngay_dt='16/03/2026'
-        now=datetime.datetime.now()
+        if is_from_thqt:
+            st.success(f"⚡ Số liệu đã được **tự động điền 100% từ Bảng THQT KP SCL** của công trình `{ma_ct}`!")
+        else:
+            st.info("💡 Chưa tải lên file Bảng THQT cho công trình này. Hệ thống đang lấy số liệu tạm từ cơ sở dữ liệu.")
 
-        st.markdown('<p class="section-title">Xem trước nội dung Tờ trình duyệt quyết toán</p>',unsafe_allow_html=True)
-        preview_html=f'''
+        st.markdown('<p class="section-title">Xem trước nội dung Tờ trình duyệt quyết toán (Chuẩn HS mẫu)</p>', unsafe_allow_html=True)
+        preview_html = f'''
         <div class="a4-preview">
             <table style="width:100%;border:none;margin-bottom:15pt;">
                 <tr>
                     <td style="width:45%;text-align:center;border:none;vertical-align:top;font-size:11pt;">
-                        TỔNG CÔNG TY<br>ĐIỆN LỰC TP HỒ CHÍ MINH<br>
-                        <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
-                        Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /TTr-PCVT<br>
+                        CÔNG TY ĐIỆN LỰC VŨNG TÀU<br>
+                        <b>PHÒNG TÀI CHÍNH KẾ TOÁN</b><br>
+                        -----------------------<br><br>
+                        Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /TTr-TCKT<br>
                         <i>V/v đề nghị duyệt quyết toán danh<br>mục SCL hoàn thành</i>
                     </td>
                     <td style="width:55%;text-align:center;border:none;vertical-align:top;">
@@ -855,235 +876,146 @@ elif page=="📝 Tờ trình duyệt QT":
                 </tr>
             </table>
             
-            <p style="margin-top:20pt;font-weight:bold;">Kính gửi : Tổ thẩm tra phê duyệt quyết toán Sửa chữa lớn</p>
+            <p style="margin-top:20pt;font-weight:bold;">Kính gửi : Giám đốc Công ty Điện lực Vũng Tàu</p>
             
             <p style="text-align:justify;line-height:1.6;margin-top:15pt;">
             Căn cứ Quyết định số 202/QĐ-HĐTV ngày 31/12/2025 của Tổng công ty Điện lực TP.HCM về việc ban hành quy định thực hiện công tác sửa chữa lớn tài sản trong Tổng công ty Điện lực Thành phố Hồ Chí Minh;<br><br>
-            Căn cứ quyết định số {so_dt} ngày {ngay_dt} về việc phê duyệt bổ sung danh mục công trình và điều hòa kế hoạch vốn sửa chữa lớn năm {now.year} của Công ty Điện lực Vũng Tàu;<br><br>
-            Căn cứ hồ sơ quyết toán công trình {ten}. Đề nghị Tổ thẩm tra phê duyệt quyết toán công trình {ten} mã công trình {ma} với giá trị quyết toán trước thuế: <b>{_fmt_money_dot(truoc_thue)} đồng</b>. (Bằng chữ: {bang_chu_truoc_thue})./.
+            Căn cứ  quyết định số {so_dt} ngày {ngay_dt} về việc phê duyệt bổ sung danh mục công trình và điều hòa kế hoạch vốn sửa chữa lớn năm {now.year} của Công ty Điện lực Vũng Tàu;<br><br>
+            Căn cứ báo cáo thẩm tra quyết toán công trình {ten}. Kính đề nghị Ông Giám đốc phê duyệt quyết toán công trình {ten}, mã công trình {ma_ct} với tổng giá trị công trình là: <b>{_fmt_money_dot(tong_qt)} đồng.</b><br>
+            (Bằng chữ:  {bang_chu}).<br>
+            Trong đó:<br>
+            </p>
+            {_render_cost_table_html([
+                ("Chi phí Sửa chữa", _fmt_money_dot(sc_qt), False, "đồng."),
+                ("Chi phí vật tư, thiết bị", _fmt_money_dot(tb_qt), False, "đồng."),
+                ("Chi phí KTCB khác", _fmt_money_dot(khac_qt), False, "đồng."),
+                ("Tổng giá trị trước thuế", _fmt_money_dot(truoc_thue), True, "đồng."),
+                ("Thuế GTGT", _fmt_money_dot(thue_qt), False, "đồng."),
+                ("Tổng giá trị Quyết toán", _fmt_money_dot(tong_qt), True, "đồng."),
+                ("Chi phí vật tư thu hồi", _fmt_money_dot(vtth_qt), False, "đồng."),
+                ("Chi phí sửa chữa lớn", _fmt_money_dot(scl_qt), True, "đồng"),
+            ], indent_px=35, label_min_width=210)}
+            <p style="text-align:justify;line-height:1.6;margin-top:8pt;">
+            Trân trọng./.
             </p>
             
-            <table style="width:100%;border:none;margin-top:40pt;">
+            <table style="width:100%;border:none;margin-top:30pt;">
                 <tr>
                     <td style="width:50%;border:none;vertical-align:top;font-size:10pt;">
                         <b>Nơi nhận:</b><br>
-                        - Như trên;<br>
-                        - Lưu: VT, TCKT, HMT.
+                        - Như trên<br>
+                        - Lưu: VT, TCKT. HMT.
                     </td>
                     <td style="width:50%;text-align:center;border:none;vertical-align:top;">
-                        <b>TM. TỔ THẨM TRA</b><br>
-                        <b>TỔ TRƯỞNG</b><br><br><br><br><br>
-                        <b>Trần Thanh Hải</b>
+                        <b>TRƯỞNG PHÒNG TÀI CHÍNH KẾ TOÁN</b><br><br><br><br><br>
+                        <b>Hà Thị Mai Hiên</b>
                     </td>
                 </tr>
             </table>
         </div>
         '''
-        data_ttr=export_ttr_duyet_qt_word(mr,cd)
-        safe=clean_filename(ten)
+        data_ttr = export_ttr_duyet_qt_word(mr, cd, thqt_data)
+        safe = clean_filename(ten)
         st.markdown(create_download_link(data_ttr, f"TTr_Duyet_QT_{safe}.docx", "📥 Xuất Word - Tờ trình duyệt QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
-        components.html(wrap_preview_html(preview_html), height=700, scrolling=True)
+        components.html(wrap_preview_html(preview_html), height=750, scrolling=True)
 
-# ── PAGE 3: TMQT ──
-elif page=="📄 Thuyết minh QT":
-    st.markdown('<p class="page-title">📄 Bảng thuyết minh quyết toán</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p3_sel", header_container)
-    if mr is not None:
-        bd=get_cost_breakdown(cd)
-        scl_dt=bd.get('SCL',{}).get('dt',0);scl_qt=bd.get('SCL',{}).get('qt',0)
-        if scl_dt==0 and 'Giá trị Dự toán' in mr: scl_dt=float(mr.get('Giá trị Dự toán',0))
-        if scl_qt==0 and 'Giá trị Q.định phê duyệt QT công trình' in mr: scl_qt=float(mr.get('Giá trị Q.định phê duyệt QT công trình',0))
-        kh=_safe_int(mr.get('Kế hoạch',0))
-        if kh < 100000: kh = kh * 1000000
-        if kh == 0: kh = _safe_int(scl_dt)
-        dv=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else 'Công ty Cổ phần Sửa chữa ô tô Tiến Phát'
-        gc=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else 'Thuê ngoài'
-        nkc=_format_date_vn(mr.get('Ngày khởi công'))
-        nht=_format_date_vn(mr.get('Ngày hoàn thành'))
-        if '....' in nkc: nkc = '15/05/2026'
-        if '....' in nht: nht = '30/06/2026'
-        so_hd=str(mr.get('Số Hợp đồng xây lắp','')) if pd.notna(mr.get('Số Hợp đồng xây lắp')) else ''
-        ngay_hd=_format_date_vn(mr.get('Ngày Hợp đồng xây lắp'))
-        now=datetime.datetime.now()
+# ── PAGE 5: BÁO CÁO THẨM TRA ──
+elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM TRA" in page:
+    st.markdown('<p class="page-title">📜 BÁO CÁO THẨM TRA QUYẾT TOÁN CÔNG TRÌNH SCL</p>', unsafe_allow_html=True)
+    row_th, mr, ten, cd = _select_ct("global_project_sel")
+    if row_th is not None:
+        ma_ct = str(row_th.get('Mã CT', '')).strip()
+        now = datetime.datetime.now()
 
-        st.markdown('<p class="section-title">Xem trước nội dung Thuyết minh QT</p>',unsafe_allow_html=True)
-        klcv=str(mr.get('Khối lượng công việc','')) if pd.notna(mr.get('Khối lượng công việc')) else ''
-        noi_dung=str(row_th.get('Nội dung SCL','')) if row_th is not None and pd.notna(row_th.get('Nội dung SCL')) else ''
-        if not klcv and noi_dung: klcv=noi_dung
-
-        klcv_html=''
-        if klcv:
-            for l in [x.strip() for x in klcv.split('\n') if x.strip()]:
-                klcv_html += f'<p style="margin-left:20px;line-height:1.4;">{l}</p>\n'
+        # Nạp dữ liệu Bảng THQT
+        thqt_data = st.session_state.get(f'thqt_{ma_ct}') or load_thqt_cache(ma_ct)
+        if thqt_data and "summary" in thqt_data:
+            sm = thqt_data["summary"]
+            if thqt_data.get('ten_ct'): ten = thqt_data['ten_ct']
+            if thqt_data.get('ma_ct'): ma_ct = thqt_data['ma_ct']
+            sc_dt = sm.get("sc_dt", 0)
+            sc_qt = sm.get("sc_qt", 0)
+            tb_dt = sm.get("tb_dt", 0)
+            tb_qt = sm.get("tb_qt", 0)
+            khac_dt = sm.get("khac_dt", 0)
+            khac_qt = sm.get("khac_qt", 0)
+            truoc_thue = sm.get("truoc_thue_qt", 0)
+            thue_qt = sm.get("thue_qt", 0)
+            tong_qt = sm.get("tong_qt", 0)
+            vtth_qt = sm.get("vtth_qt", 0)
+            scl_qt = sm.get("scl_qt", 0)
+            ktcb_list = thqt_data.get("ktcb_rows", [])
+            tot_ktcb_dt = sm.get("tot_ktcb_dt", 0)
+            tot_ktcb_qt = sm.get("tot_ktcb_qt", 0)
+            is_from_thqt = True
         else:
-            klcv_html = '<p style="margin-left:20px;">(Thực hiện đúng theo khối lượng biên bản nghiệm thu hoàn thành công trình)</p>'
+            bd = get_cost_breakdown(cd)
+            scl_dt = bd.get('SCL', {}).get('dt', 0)
+            scl_qt = bd.get('SCL', {}).get('qt', 0)
+            if scl_dt == 0 and mr is not None and 'Giá trị Dự toán' in mr:
+                scl_dt = float(mr.get('Giá trị Dự toán', 0))
+            if scl_qt == 0 and mr is not None and 'Giá trị Q.định phê duyệt QT công trình' in mr:
+                scl_qt = float(mr.get('Giá trị Q.định phê duyệt QT công trình', 0))
+            sc_dt = bd.get('B', {}).get('dt', 0)
+            sc_qt = bd.get('B', {}).get('qt', 0)
+            tb_dt = bd.get('A', {}).get('dt', 0)
+            tb_qt = bd.get('A', {}).get('qt', 0)
+            khac_dt = bd.get('C', {}).get('dt', 0)
+            khac_qt = bd.get('C', {}).get('qt', 0)
+            vtth_qt = bd.get('F', {}).get('qt', 0)
+            thue_qt = bd.get('B.8', {}).get('qt', 0)
+            if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
+            truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
+            tong_qt = scl_qt
+            ktcb_list = []
+            tot_ktcb_dt = khac_dt
+            tot_ktcb_qt = khac_qt
+            is_from_thqt = False
 
-        preview_html=f'''
+        if is_from_thqt:
+            st.success(f"⚡ Số liệu đã được **tự động điền 100% từ Bảng THQT KP SCL** của công trình `{ma_ct}`!")
+        else:
+            st.info("💡 Chưa tải lên file Bảng THQT cho công trình này. Hệ thống đang lấy số liệu tạm từ cơ sở dữ liệu.")
+
+        # Xây dựng bảng 5 cột KTCB khác
+        if not ktcb_list:
+            ktcb_list = [
+                {"name": "Chi phí Lập khảo sát, Lập PAKT-DT", "dt": 46296296, "qt": 46296296, "tt": 46296296, "diff": 0},
+                {"name": "2- Chi phí giám sát công trình", "dt": 38888889, "qt": 38888889, "tt": 38888889, "diff": 0},
+                {"name": "Chi phí bảo hiểm công trình", "dt": 898673, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí thẩm tra thiết kế", "dt": 2107797, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí thẩm tra dự toán", "dt": 2042439, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí thẩm tra phê duyệt quyết toán", "dt": 5619375, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí dự phòng", "dt": 49292765, "qt": 0, "tt": 0, "diff": 0},
+            ]
+            tot_ktcb_dt = sum(x["dt"] for x in ktcb_list)
+            tot_ktcb_qt = sum(x["qt"] for x in ktcb_list)
+
+        ktcb_rows_html = ""
+        for it in ktcb_list:
+            ktcb_rows_html += f'''<tr>
+                <td style="border:1px solid #000;padding:4pt 6pt;">{it['name']}</td>
+                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(it.get('dt',0))}</td>
+                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(it.get('qt',0))}</td>
+                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(it.get('tt', it.get('qt',0)))}</td>
+                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">0</td>
+            </tr>\n'''
+        ktcb_rows_html += f'''<tr style="font-weight:bold;background:#f0f4f8;">
+            <td style="border:1px solid #000;padding:4pt 6pt;">Tổng cộng</td>
+            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(tot_ktcb_dt)}</td>
+            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt)}</td>
+            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt)}</td>
+            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">0</td>
+        </tr>\n'''
+
+        st.markdown('<p class="section-title">Xem trước Báo cáo thẩm tra quyết toán (Chuẩn HS mẫu)</p>', unsafe_allow_html=True)
+        preview5a = f'''
         <div class="a4-preview">
             <table style="width:100%;border:none;margin-bottom:10pt;">
                 <tr>
-                    <td style="width:45%;text-align:center;border:none;vertical-align:top;font-size:11pt;">
-                        TỔNG CÔNG TY<br>ĐIỆN LỰC TP HỒ CHÍ MINH<br>
-                        <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
-                        Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /BB-PCVT
-                    </td>
-                    <td style="width:55%;text-align:center;border:none;vertical-align:top;">
-                        <b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
-                        <b>Độc lập - Tự do - Hạnh Phúc</b><br>
-                        -----------------------<br><br>
-                        <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i>
-                    </td>
-                </tr>
-            </table>
-
-            <div class="center-title" style="margin-top:15pt;font-weight:bold;font-size:14pt;text-align:center;">
-                BẢN THUYẾT MINH QUYẾT TOÁN
-            </div>
-            
-            <p>- Tên gói thầu: Cung cấp vật tư phụ tùng, thi công sửa chữa và mua bảo hiểm</p>
-            <p>- Công trình: “<b>{ten}</b>”</p>
-            <p>- Giá trị vốn kế hoạch: <b>{_fmt_money_dot(kh)}</b> đồng</p>
-            <p>- Hình thức: <b>{gc}</b></p>
-            <p>- Tên đơn vị thi công: <b>{dv}</b></p>
-            <p>- Giá trị dự toán được duyệt (sau thuế): <b>{_fmt_money_dot(scl_dt)}</b> đồng</p>
-            <p>- Thời gian khởi công: <b>{nkc}</b></p>
-            <p>- Thời gian hoàn thành: <b>{nht}</b></p>
-            <p>- Giá trị quyết toán danh mục hoàn thành: <b>{_fmt_money_dot(scl_qt)}</b> đồng</p>
-            
-            <p>- Khối lượng công việc chủ yếu đã hoàn thành thay thế sửa chữa, cụ thể:</p>
-            {klcv_html}
-            
-            <p>- Các căn cứ về chế độ để lập quyết toán:</p>
-            <p style="margin-left:20px;">+ Căn cứ Quyết định số 202/QĐ-HĐTV ngày 31/12/2025 của Tổng công ty Điện lực TP.HCM về việc ban hành quy định thực hiện công tác sửa chữa lớn tài sản trong Tổng công ty Điện lực Thành phố Hồ Chí Minh.</p>
-            {f'<p style="margin-left:20px;">+ Hợp đồng số: {so_hd} ngày {ngay_hd} giữa Công ty Điện lực Vũng Tàu và {dv}.</p>' if so_hd else ''}
-            <p style="margin-left:20px;">+ Bảng kê tổng hợp quyết toán do {dv} lập và được Công ty Điện lực Vũng Tàu thỏa hiệp.</p>
-            
-            <p>- Phân tích các nhân tố tăng giảm so với dự toán được duyệt: Không có</p>
-            <p>- Đánh giá hiệu quả của công việc SCL: Đảm bảo an toàn trong vận hành.</p>
-            <p>- Các kiến nghị: Không có ./.</p>
-            
-            <table style="width:100%;border:none;margin-top:30pt;">
-                <tr>
-                    <td style="width:50%;border:none;font-size:10pt;vertical-align:top;">
-                        <b>Nơi nhận:</b><br>
-                        - P/Đ liên quan (để thực hiện);<br>
-                        - Lưu: VT, TCKT, HMT.
-                    </td>
-                    <td style="width:50%;text-align:center;border:none;vertical-align:top;">
-                        <b>GIÁM ĐỐC</b><br><br><br><br><br>
-                        <b>Nguyễn Ngọc Tuyến</b>
-                    </td>
-                </tr>
-            </table>
-        </div>
-        '''
-        data=export_tmqt_word(mr,cd,noi_dung)
-        safe=clean_filename(ten)
-        st.markdown(create_download_link(data, f"TMQT_{safe}.docx", "📥 Xuất Word - Thuyết minh QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
-        st.write('')
-        components.html(wrap_preview_html(preview_html), height=900, scrolling=True)
-
-# ── PAGE 4: PHIẾU THẨM TRA ──
-elif page=="🔍 Phiếu thẩm tra":
-    st.markdown('<p class="page-title">🔍 Phiếu thẩm tra quyết toán</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p4_sel", header_container)
-    if mr is not None:
-        gc=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else ''
-        dv=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else 'Công ty Điện lực Vũng Tàu'
-        so_hd=str(mr.get('Số Hợp đồng xây lắp','')) if pd.notna(mr.get('Số Hợp đồng xây lắp')) else ''
-        ngay_hd=_format_date_vn(mr.get('Ngày Hợp đồng xây lắp'))
-        so_dt=str(mr.get('Số Dự toán','')) if pd.notna(mr.get('Số Dự toán')) else ''
-        ngay_dt=_format_date_vn(mr.get('Ngày Dự toán'))
-        now=datetime.datetime.now()
-
-        st.markdown('<p class="section-title">Xem trước Phiếu thẩm tra</p>',unsafe_allow_html=True)
-        preview_html=f'''
-        <div class="a4-preview">
-            <table style="width:100%;border:none;margin-bottom:10pt;">
-                <tr>
-                    <td style="width:45%;text-align:center;border:none;vertical-align:top;font-size:11pt;">
-                        TỔNG CÔNG TY<br>ĐIỆN LỰC TP HỒ CHÍ MINH<br>
-                        <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
-                        Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /PTT-PCVT
-                    </td>
-                    <td style="width:55%;text-align:center;border:none;vertical-align:top;">
-                        <b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
-                        <b>Độc lập - Tự do - Hạnh phúc</b><br>
-                        -----------------------<br><br>
-                        <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i>
-                    </td>
-                </tr>
-            </table>
-
-            <div class="center-title" style="margin-top:15pt;font-weight:bold;font-size:14pt;text-align:center;">
-                PHIẾU THẨM TRA QUYẾT TOÁN<br>CÔNG TRÌNH SỬA CHỮA LỚN
-            </div>
-            
-            <p>1. Tên công trình SCL: <b>{ten}</b></p>
-            <p>2. Mã công trình: <b>{mr.get('Mã CT','')}</b></p>
-            <p>3. Đơn vị quản lý: <b>{dv}</b></p>
-            <p>4. Phương thức chọn thầu thực hiện: <b>{gc if gc else 'Thuê ngoài'}</b> {f'(Hợp đồng số {so_hd} ngày {ngay_hd})' if so_hd else ''}</p>
-            <p>5. Đơn vị thực hiện: <b>{dv}</b></p>
-            <p>6. Căn cứ phê duyệt PAKT-DT: <b>Quyết định số {so_dt} ngày {ngay_dt} của Công ty Điện lực Vũng Tàu</b></p>
-            
-            <p style="margin-top:15pt;font-weight:bold;">7. Ý KIẾN THẨM TRA CỦA CÁC ĐƠN VỊ THÀNH VIÊN:</p>
-            <p>- Phòng Kỹ thuật: Đã kiểm tra khối lượng hoàn công thực tế phù hợp với PAKT-DT được duyệt.</p>
-            <p>- Phòng Kế hoạch Vật tư: Đã rà soát chi phí vật tư, hợp đồng và đối chiếu VTTB thu hồi.</p>
-            <p>- Phòng Tài chính Kế toán: Đã kiểm tra tính hợp pháp của chứng từ, hóa đơn GTGT và đối chiếu sổ sách kế toán.</p>
-            
-            <p style="margin-top:15pt;font-weight:bold;">8. KẾT LUẬN VÀ KIẾN NGHỊ:</p>
-            <p style="text-align:justify;">Hồ sơ quyết toán công trình SCL đầy đủ tính pháp lý, tuân thủ đúng quy trình quản lý SCL theo Quyết định số 202/QĐ-HĐTV ngày 31/12/2025 của EVNHCMC. Kính trình Giám đốc Công ty phê duyệt.</p>
-            
-            <table style="width:100%;border:none;margin-top:30pt;">
-                <tr>
-                    <td style="width:33%;text-align:center;border:none;"><b>ĐẠI DIỆN P.KHVT</b></td>
-                    <td style="width:33%;text-align:center;border:none;"><b>ĐẠI DIỆN P.TCKT</b></td>
-                    <td style="width:33%;text-align:center;border:none;"><b>TỔ TRƯỞNG TỔ THẨM TRA</b></td>
-                </tr>
-            </table>
-        </div>
-        '''
-        data=export_phieu_tham_tra_word(mr)
-        safe=clean_filename(ten)
-        st.markdown(create_download_link(data, f"Phieu_tham_tra_{safe}.docx", "📥 Xuất Word - Phiếu thẩm tra QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
-        st.write('')
-        components.html(wrap_preview_html(preview_html), height=700, scrolling=True)
-
-# ── PAGE 5: BÁO CÁO THẨM TRA (KHỚP Y CHANG THAM KHẢO) ──
-elif page=="📜 Báo cáo thẩm tra":
-    st.markdown('<p class="page-title">📜 Báo cáo thẩm tra quyết toán công trình SCL</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p5_sel", header_container)
-    if mr is not None:
-        bd=get_cost_breakdown(cd)
-        scl_dt=bd.get('SCL',{}).get('dt',0); scl_qt=bd.get('SCL',{}).get('qt',0)
-        if scl_dt==0 and 'Giá trị Dự toán' in mr: scl_dt=float(mr.get('Giá trị Dự toán',0))
-        if scl_qt==0 and 'Giá trị Q.định phê duyệt QT công trình' in mr: scl_qt=float(mr.get('Giá trị Q.định phê duyệt QT công trình',0))
-        sc_dt=bd.get('B',{}).get('dt',0); sc_qt=bd.get('B',{}).get('qt',0)
-        tb_dt=bd.get('A',{}).get('dt',0); tb_qt=bd.get('A',{}).get('qt',0)
-        dp_dt=bd.get('D',{}).get('dt',0); dp_qt=bd.get('D',{}).get('qt',0)
-        khac_dt=bd.get('C',{}).get('dt',0); khac_qt=bd.get('C',{}).get('qt',0)
-        th_qt=bd.get('F',{}).get('qt',0)
-        thue_qt=bd.get('B.8',{}).get('qt',0)
-        if sc_dt==0 and scl_dt>0: sc_dt=scl_dt
-        if sc_qt==0 and scl_qt>0: sc_qt=scl_qt
-        if thue_qt==0 and scl_qt>0: thue_qt=int(round(scl_qt - scl_qt/1.08))
-        sc_truoc_thue=sc_qt - thue_qt if sc_qt>=thue_qt else sc_qt
-
-        dv5=str(mr.get('Đơn vị QL','')) if pd.notna(mr.get('Đơn vị QL')) else 'Công ty CP sửa chữa Ô tô Tiến Phát'
-        gc5=str(mr.get('Ghi chú','')) if pd.notna(mr.get('Ghi chú')) else 'Đấu thầu rộng rãi'
-        so_hd5=str(mr.get('Số Hợp đồng xây lắp','')) if pd.notna(mr.get('Số Hợp đồng xây lắp')) else '27-2026/HĐPTV/TP-PCVT'
-        ngay_hd5=_format_date_vn(mr.get('Ngày Hợp đồng xây lắp'))
-        if '....' in ngay_hd5: ngay_hd5='19/06/2026'
-        now=datetime.datetime.now()
-
-        st.markdown('<p class="section-title">Xem trước Báo cáo thẩm tra quyết toán</p>',unsafe_allow_html=True)
-        preview5a=f'''
-        <div class="a4-preview">
-            <table style="width:100%;border:none;margin-bottom:10pt;">
-                <tr>
-                    <td style="width:45%;text-align:center;border:none;vertical-align:top;font-size:11pt;">
-                        TỔNG CÔNG TY<br>ĐIỆN LỰC TP HỒ CHÍ MINH<br>
+                    <td style="width:45%;text-align:center;border:none;vertical-align:top;font-size:10pt;">
+                        TỔNG CÔNG TY ĐIỆN LỰC TP HỒ CHÍ MINH<br>
                         <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
                         Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /BC-TCKT
                     </td>
@@ -1091,7 +1023,7 @@ elif page=="📜 Báo cáo thẩm tra":
                         <b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
                         <b>Độc lập - Tự do - Hạnh phúc</b><br>
                         -----------------------<br><br>
-                        <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}</i>
+                        <i>Vũng Tàu, ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm {now.year}.</i>
                     </td>
                 </tr>
             </table>
@@ -1104,61 +1036,67 @@ elif page=="📜 Báo cáo thẩm tra":
             <p>Tổ thẩm tra quyết toán công trình sửa chữa lớn Công ty Điện lực Vũng Tàu thẩm tra hồ sơ quyết toán công trình với kết quả như sau:</p>
             
             <p><b><i>I/- Nội dung thẩm tra:</i></b></p>
-            <p style="margin-left:20px;">➢ Tên công trình: {ten}.</p>
-            <p style="margin-left:20px;">➢ Đơn vị quản lý: Công ty Điện lực Vũng Tàu.</p>
-            <p style="margin-left:20px;">➢ Phương thức chọn thầu thực hiện: {gc5}.</p>
-            <p style="margin-left:20px;">➢ Hợp đồng số: {so_hd5} ngày {ngay_hd5}.</p>
-            <p style="margin-left:20px;">➢ Đơn vị thực hiện: {dv5}.</p>
+            <p style="margin-left:20px;">Tên công trình: {ten}.</p>
+            <p style="margin-left:20px;">Đơn vị quản lý: Công ty Điện lực Vũng Tàu.</p>
+            <p style="margin-left:20px;">Phương thức chọn thầu thực hiện: đấu thầu rộng rãi</p>
+            <p style="margin-left:20px;">Hợp đồng số:<br>40-2026/HĐXL/PCVT-TB.<br>41-2026/HĐTV/PCVT-TVĐ.<br>03-2026/HĐTV/PCVT-TVĐ.</p>
+            <p style="margin-left:20px;">Đơn vị thực hiện:<br>Công ty CP Tư vấn Dịch vụ Xây dựng Thái Bình.<br>Công ty CP Tư vấn Xây dựng Điện lực TP HCM.</p>
             
             <p><b>Nội dung cụ thể:</b></p>
-            <p style="margin-left:20px;"><b>1/ Phần sửa chữa:</b></p>
-            <p style="margin-left:35px;">- Số dự toán &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(sc_dt)} đồng.</p>
-            <p style="margin-left:35px;">- Số quyết toán &nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(sc_qt)} đồng.</p>
-            <p style="margin-left:35px;">- Số thẩm tra &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(sc_qt)} đồng.</p>
-            <p style="margin-left:35px;">- Số chênh lệch &nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(sc_dt - sc_qt)} đồng.</p>
+            <p style="margin-left:20px;margin-bottom:2px;"><b>1/ Phần sửa chữa:</b></p>
+            {_render_cost_table_html([
+                ("- Số dự toán", _fmt_money_dot(sc_dt), False, "đồng."),
+                ("- Số quyết toán", _fmt_money_dot(sc_qt), False, "đồng."),
+                ("- Số thẩm tra", _fmt_money_dot(sc_qt), False, "đồng."),
+                ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
+            ], indent_px=35, label_min_width=175)}
             
-            <p style="margin-left:20px;"><b>2/ Phần thiết bị:</b></p>
-            <p style="margin-left:35px;">- Số dự toán &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(tb_dt) if tb_dt>0 else ''} đồng.</p>
-            <p style="margin-left:35px;">- Số quyết toán &nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(tb_qt) if tb_qt>0 else ''} đồng.</p>
-            <p style="margin-left:35px;">- Số thẩm tra &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(tb_qt) if tb_qt>0 else ''} đồng.</p>
-            <p style="margin-left:35px;">- Số chênh lệch &nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(tb_dt - tb_qt) if tb_dt>0 else ''} đồng.</p>
+            <p style="margin-left:20px;margin-bottom:2px;margin-top:6pt;"><b>2/  Phần vật tư, thiết bị:</b></p>
+            {_render_cost_table_html([
+                ("- Số dự toán", _fmt_money_dot(tb_dt), False, "đồng."),
+                ("- Số quyết toán", _fmt_money_dot(tb_qt), False, "đồng."),
+                ("- Số thẩm tra", _fmt_money_dot(tb_qt), False, "đồng."),
+                ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
+            ], indent_px=35, label_min_width=175)}
             
-            <p style="margin-left:20px;"><b>3/ Phần kiến thiết cơ bản khác:</b></p>
-            <table style="width:100%;border-collapse:collapse;margin:10pt 0;">
+            <p style="margin-left:20px;margin-top:6pt;"><b>3/ Phần kiến thiết cơ bản khác:</b></p>
+            <table style="width:100%;border-collapse:collapse;margin:10pt 0;font-size:11pt;">
                 <tr style="font-weight:bold;text-align:center;background:#f0f0f0;">
                     <td style="border:1px solid #000;padding:5pt;">Nội dung</td>
-                    <td style="border:1px solid #000;padding:5pt;width:20%;">Dự toán được duyệt</td>
-                    <td style="border:1px solid #000;padding:5pt;width:20%;">Giá trị quyết toán</td>
-                    <td style="border:1px solid #000;padding:5pt;width:20%;">Số thẩm tra</td>
-                    <td style="border:1px solid #000;padding:5pt;width:20%;">Chênh lệch</td>
+                    <td style="border:1px solid #000;padding:5pt;width:18%;">Dự toán được duyệt</td>
+                    <td style="border:1px solid #000;padding:5pt;width:18%;">Giá trị quyết toán</td>
+                    <td style="border:1px solid #000;padding:5pt;width:18%;">Số thẩm tra</td>
+                    <td style="border:1px solid #000;padding:5pt;width:18%;">Chênh lệch TTr/QT</td>
                 </tr>
-                <tr><td style="border:1px solid #000;padding:5pt;">Chi phí thiết kế</td><td style="border:1px solid #000;padding:5pt;"></td><td style="border:1px solid #000;padding:5pt;"></td><td style="border:1px solid #000;padding:5pt;"></td><td style="border:1px solid #000;padding:5pt;"></td></tr>
-                <tr><td style="border:1px solid #000;padding:5pt;">Chi phí thẩm định</td><td style="border:1px solid #000;padding:5pt;"></td><td style="border:1px solid #000;padding:5pt;"></td><td style="border:1px solid #000;padding:5pt;"></td><td style="border:1px solid #000;padding:5pt;"></td></tr>
-                <tr><td style="border:1px solid #000;padding:5pt;">Chi phí khác</td><td style="border:1px solid #000;padding:5pt;text-align:right;">{_fmt_money_dot(khac_dt) if khac_dt>0 else ''}</td><td style="border:1px solid #000;padding:5pt;text-align:right;">{_fmt_money_dot(khac_qt) if khac_qt>0 else ''}</td><td style="border:1px solid #000;padding:5pt;text-align:right;">{_fmt_money_dot(khac_qt) if khac_qt>0 else ''}</td><td style="border:1px solid #000;padding:5pt;"></td></tr>
-                <tr><td style="border:1px solid #000;padding:5pt;">Chi phí dự phòng</td><td style="border:1px solid #000;padding:5pt;text-align:right;">{_fmt_money_dot(dp_dt) if dp_dt>0 else '24.939.900'}</td><td style="border:1px solid #000;padding:5pt;text-align:right;">0</td><td style="border:1px solid #000;padding:5pt;text-align:right;">0</td><td style="border:1px solid #000;padding:5pt;text-align:right;">{_fmt_money_dot(dp_dt) if dp_dt>0 else '0'}</td></tr>
-                <tr style="font-weight:bold;"><td style="border:1px solid #000;padding:5pt;">Tổng cộng</td><td style="border:1px solid #000;padding:5pt;text-align:right;">{_fmt_money_dot(dp_dt) if dp_dt>0 else '24.939.900'}</td><td style="border:1px solid #000;padding:5pt;text-align:right;">0</td><td style="border:1px solid #000;padding:5pt;text-align:right;">0</td><td style="border:1px solid #000;padding:5pt;text-align:right;">{_fmt_money_dot(dp_dt) if dp_dt>0 else '0'}</td></tr>
+                {ktcb_rows_html}
             </table>
 
             <p><b><i>II/ Kết luận:</i></b></p>
-            <p style="margin-left:20px;">Sau khi xem xét thẩm tra hồ sơ, tổ thẩm tra quyết toán chấp thuận tổng giá trị quyết toán công trình nêu trên là: <b>{_fmt_money_dot(scl_qt)}</b> đồng, cụ thể:</p>
-            <p style="margin-left:40px;">Chi phí Sửa chữa &nbsp;&nbsp;: &nbsp;&nbsp;<b>{_fmt_money_dot(sc_truoc_thue)}</b> đồng.</p>
-            <p style="margin-left:40px;">Chi phí Thiết bị &nbsp;&nbsp;: &nbsp;&nbsp;<b>{_fmt_money_dot(tb_qt)}</b> đồng.</p>
-            <p style="margin-left:40px;">Chi phí KTCB khác &nbsp;: &nbsp;&nbsp;<b>{_fmt_money_dot(khac_qt)}</b> đồng.</p>
-            <p style="margin-left:40px;">Chi phí VT Thu hồi: &nbsp;&nbsp;<b>{_fmt_money_dot(th_qt)}</b> đồng.</p>
-            <p style="margin-left:40px;">Thuế GTGT &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;<b>{_fmt_money_dot(thue_qt)}</b> đồng.</p>
-            <p style="margin-left:40px;"><b>Tổng cộng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(scl_qt)} đồng.</b></p>
-            <p style="margin-left:20px;">Kính trình và đề nghị Ông Giám đốc phê duyệt.</p>
+            <p style="margin-left:20px;margin-bottom:4pt;">Sau khi xem xét thẩm tra hồ sơ, tổ thẩm tra quyết toán chấp thuận tổng giá trị quyết toán công trình nêu trên là: <b>{_fmt_money_dot(tong_qt)} đồng</b>, cụ thể:</p>
+            {_render_cost_table_html([
+                ("Chi phí Sửa chữa", _fmt_money_dot(sc_qt), False, "đồng."),
+                ("Chi phí vật tư, thiết bị", _fmt_money_dot(tb_qt), False, "đồng."),
+                ("Chi phí KTCB khác", _fmt_money_dot(khac_qt), False, "đồng."),
+                ("Tổng giá trị trước thuế", _fmt_money_dot(truoc_thue), True, "đồng."),
+                ("Thuế GTGT", _fmt_money_dot(thue_qt), False, "đồng."),
+                ("Tổng giá trị Quyết toán", _fmt_money_dot(tong_qt), True, "đồng."),
+                ("Chi phí vật tư thu hồi", _fmt_money_dot(vtth_qt), False, "đồng."),
+                ("Chi phí sửa chữa lớn", _fmt_money_dot(scl_qt), True, "đồng"),
+            ], indent_px=40, label_min_width=210)}
+            <p style="margin-left:20px;margin-top:10pt;">Kính trình và đề nghị Ông Giám đốc phê duyệt.</p>
 
             <div style="text-align:center;font-weight:bold;margin:25pt 0 15pt 0;">THÀNH VIÊN TỔ THẨM TRA QUYẾT TOÁN</div>
             <table style="width:100%;border:none;">
                 <tr>
                     <td style="width:60%;border:none;line-height:2.0;font-size:11pt;">
-                        Hà Thị Mai Hiên (KTT)....................................<br>
-                        Nguyễn văn Quyến (TP.QLĐT)............................<br>
-                        Nguyễn Mạnh Hiệp (TP.KHVT)............................<br>
-                        Đặng Văn Đức (Q.CVP).....................................<br>
-                        Đặng Thành Nhân (TTr Công xa).........................<br>
-                        Hoàng Minh Tuấn (CV.TCKT)............................
+                        Hà Thị Mai Hiên (KTT)…………………….…...........<br>
+                        Nguyễn văn Quyến (TP.QLĐT)………………………<br>
+                        Nguyễn Mạnh Hiệp (TP.KHVT)……………………...<br>
+                        Nguyễn Đức Minh (TP.KTAT)……………………….<br>
+                        Hoàng Minh Tuấn (CV.TCKT)…………….…………<br>
+                        Nguyễn Văn Huy (TT.KTAT)………………………<br>
+                        Lê Anh Ngọc (TT.KHVT)…………………………….<br>
+                        Lê Hoài Nam (CV.QLĐT)………………………
                     </td>
                     <td style="width:40%;text-align:center;border:none;vertical-align:top;">
                         <b>TỔ TRƯỞNG TỔ THẨM TRA</b><br><br><br><br><br><br><br><br>
@@ -1168,43 +1106,68 @@ elif page=="📜 Báo cáo thẩm tra":
             </table>
         </div>
         '''
-        data_bc=export_bao_cao_tham_tra_word(mr,cd)
-        safe=clean_filename(ten)
+        data_bc = export_bao_cao_tham_tra_word(mr, cd, thqt_data)
+        safe = clean_filename(ten)
         st.markdown(create_download_link(data_bc, f"BC_tham_tra_{safe}.docx", "📥 Xuất Word - Báo cáo thẩm tra", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
-        components.html(wrap_preview_html(preview5a), height=900, scrolling=True)
+        components.html(wrap_preview_html(preview5a), height=950, scrolling=True)
 
-# ── PAGE 6: QUYẾT ĐỊNH PHÊ DUYỆT (KHỚP Y CHANG THAM KHẢO) ──
-elif page=="📜 Quyết định phê duyệt":
-    st.markdown('<p class="page-title">📜 Quyết định phê duyệt quyết toán công trình SCL</p>',unsafe_allow_html=True)
-    row_th,mr,ten,cd=_select_ct("p6_sel", header_container)
-    if mr is not None:
-        bd=get_cost_breakdown(cd)
-        scl_qt=bd.get('SCL',{}).get('qt',0)
-        if scl_qt==0 and 'Giá trị Q.định phê duyệt QT công trình' in mr:
-            scl_qt=float(mr.get('Giá trị Q.định phê duyệt QT công trình',0))
-        vttb_qt=bd.get('A',{}).get('qt',0)
-        sc_qt=bd.get('B',{}).get('qt',0)
-        khac_qt=bd.get('C',{}).get('qt',0)
-        th_qt=bd.get('F',{}).get('qt',0)
-        thue_qt=bd.get('B.8',{}).get('qt',0)
-        if sc_qt==0 and scl_qt>0: sc_qt=scl_qt
-        if thue_qt==0 and scl_qt>0: thue_qt=int(round(scl_qt - scl_qt/1.08))
-        sc_truoc_thue=sc_qt - thue_qt if sc_qt>=thue_qt else sc_qt
+# ── PAGE 6: QUYẾT ĐỊNH PHÊ DUYỆT QUYẾT TOÁN ──
+elif "QUYẾT ĐỊNH" in page:
+    st.markdown('<p class="page-title">⚖️ QUYẾT ĐỊNH PHÊ DUYỆT QUYẾT TOÁN CÔNG TRÌNH SCL</p>', unsafe_allow_html=True)
+    row_th, mr, ten, cd = _select_ct("global_project_sel")
+    if row_th is not None:
+        ma_ct = str(row_th.get('Mã CT', '')).strip()
+        so_dt = str(mr.get('Số Dự toán', '135/QĐ-PCVT')) if mr is not None and pd.notna(mr.get('Số Dự toán')) else '135/QĐ-PCVT'
+        ngay_dt = _format_date_vn(mr.get('Ngày Dự toán')) if mr is not None else '16/03/2026'
+        if '....' in ngay_dt: ngay_dt = '16/03/2026'
+        now = datetime.datetime.now()
 
-        so_dt=str(mr.get('Số Dự toán','135/QĐ-PCVT'))
-        ngay_dt=_format_date_vn(mr.get('Ngày Dự toán'))
-        if '....' in ngay_dt: ngay_dt='16/03/2026'
-        now=datetime.datetime.now()
-        bang_chu=doc_so_vn(scl_qt) if scl_qt>0 else ''
+        # Nạp dữ liệu Bảng THQT
+        thqt_data = st.session_state.get(f'thqt_{ma_ct}') or load_thqt_cache(ma_ct)
+        if thqt_data and "summary" in thqt_data:
+            sm = thqt_data["summary"]
+            if thqt_data.get('ten_ct'): ten = thqt_data['ten_ct']
+            if thqt_data.get('ma_ct'): ma_ct = thqt_data['ma_ct']
+            sc_qt = sm.get("sc_qt", 0)
+            tb_qt = sm.get("tb_qt", 0)
+            khac_qt = sm.get("khac_qt", 0)
+            truoc_thue = sm.get("truoc_thue_qt", 0)
+            thue_qt = sm.get("thue_qt", 0)
+            tong_qt = sm.get("tong_qt", 0)
+            vtth_qt = sm.get("vtth_qt", 0)
+            scl_qt = sm.get("scl_qt", 0)
+            bang_chu = sm.get("bang_chu") or doc_so_vn(tong_qt)
+            is_from_thqt = True
+        else:
+            bd = get_cost_breakdown(cd)
+            scl_qt = bd.get('SCL', {}).get('qt', 0)
+            if scl_qt == 0 and mr is not None and 'Giá trị Q.định phê duyệt QT công trình' in mr:
+                scl_qt = float(mr.get('Giá trị Q.định phê duyệt QT công trình', 0))
+            tb_qt = bd.get('A', {}).get('qt', 0)
+            sc_qt = bd.get('B', {}).get('qt', 0)
+            khac_qt = bd.get('C', {}).get('qt', 0)
+            vtth_qt = bd.get('F', {}).get('qt', 0)
+            thue_qt = bd.get('B.8', {}).get('qt', 0)
+            if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
+            truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
+            tong_qt = scl_qt
+            bang_chu = doc_so_vn(scl_qt) if scl_qt > 0 else ''
+            is_from_thqt = False
 
-        st.markdown('<p class="section-title">Xem trước Quyết định phê duyệt quyết toán</p>',unsafe_allow_html=True)
-        preview5b=f'''
+        if is_from_thqt:
+            st.success(f"⚡ Số liệu đã được **tự động điền 100% từ Bảng THQT KP SCL** của công trình `{ma_ct}`!")
+        else:
+            st.info("💡 Chưa tải lên file Bảng THQT cho công trình này. Hệ thống đang lấy số liệu tạm từ cơ sở dữ liệu.")
+
+        st.markdown('<p class="section-title">Xem trước Quyết định phê duyệt quyết toán (Chuẩn HS mẫu)</p>', unsafe_allow_html=True)
+        preview5b = f'''
         <div class="a4-preview">
             <table style="width:100%;border:none;margin-bottom:10pt;">
                 <tr>
                     <td style="width:45%;text-align:center;border:none;vertical-align:top;font-size:11pt;">
-                        TỔNG CÔNG TY<br>ĐIỆN LỰC TP HỒ CHÍ MINH<br>
+                        TỔNG CÔNG TY<br>
+                        ĐIỆN LỰC TP HỒ CHÍ MINH<br>
                         <b>CÔNG TY ĐIỆN LỰC VŨNG TÀU</b><br><br>
                         Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /QĐ-PCVT
                     </td>
@@ -1223,7 +1186,7 @@ elif page=="📜 Quyết định phê duyệt":
             </div>
             
             <p>Tên công trình: <b>{ten}</b></p>
-            <p>Mã công trình: <b>{mr.get('Mã CT','')}</b></p>
+            <p>Mã công trình: <b>{ma_ct}</b></p>
             <p>Chủ đầu tư: <b>Công ty Điện lực Vũng Tàu</b></p>
             <p>Kế hoạch vốn năm: <b>{now.year}</b></p>
             <p>Nguồn vốn: <b>Sửa chữa lớn</b></p>
@@ -1232,35 +1195,39 @@ elif page=="📜 Quyết định phê duyệt":
             
             <p style="text-align:justify;line-height:1.6;">
             Căn cứ Quyết định số 202/QĐ-HĐTV ngày 31/12/2025 của Tổng công ty Điện lực TP.HCM về việc ban hành quy định thực hiện công tác sửa chữa lớn tài sản trong Tổng công ty Điện lực Thành phố Hồ Chí Minh;<br>
-            Căn cứ quyết định số {so_dt} ngày {ngay_dt} về việc phê duyệt bổ sung danh mục công trình và điều hòa kế hoạch vốn sửa chữa lớn năm {now.year} của Công ty Điện lực Vũng Tàu;<br>
+            Căn cứ  quyết định số {so_dt} ngày {ngay_dt} về việc phê duyệt bổ sung danh mục công trình và điều hòa kế hoạch vốn sửa chữa lớn năm {now.year} của Công ty Điện lực Vũng Tàu;<br>
             Căn cứ hồ sơ quyết toán công trình: {ten};<br>
-            Căn cứ Báo cáo thẩm tra quyết toán của Tổ thẩm tra về việc phê duyệt quyết toán công trình sửa chữa lớn Công ty Điện lực Vũng Tàu năm {now.year};
+            Căn cứ báo cáo thẩm tra quyết toán của Tổ thẩm tra duyệt quyết toán công trình sửa chữa lớn Công ty Điện lực Vũng tàu.
             </p>
             
             <div style="text-align:center;font-weight:bold;margin:15pt 0 10pt 0;">QUYẾT ĐỊNH :</div>
             
             <p><b>Điều 1. Phê duyệt quyết toán</b></p>
-            <p>Công trình: <b>{ten}</b> với tổng giá trị công trình : <b>{_fmt_money_dot(scl_qt)} đồng</b></p>
-            <p>(Bằng chữ: <i>{bang_chu}</i>)</p>
-            <p style="margin-left:20px;">Trong đó:</p>
-            <p style="margin-left:35px;">Chi phí VTTB &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(vttb_qt) if vttb_qt>0 else ''} đồng</p>
-            <p style="margin-left:35px;">Chi phí sửa chữa &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;<b>{_fmt_money_dot(sc_truoc_thue)}</b> đồng</p>
-            <p style="margin-left:35px;">Chi phí khác &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(khac_qt) if khac_qt>0 else ''} đồng</p>
-            <p style="margin-left:35px;">Vật tư thu hồi &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;{_fmt_money_dot(th_qt) if th_qt>0 else ''} đồng</p>
-            <p style="margin-left:35px;">Thuế GTGT &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;&nbsp;<b>{_fmt_money_dot(thue_qt)}</b> đồng</p>
-            <p style="margin-left:35px;"><b>Cộng giá trị công trình: &nbsp;&nbsp;{_fmt_money_dot(scl_qt)} đồng</b></p>
+            <p>Công trình: <b>{ten}</b> với tổng giá trị công trình : <b>{_fmt_money_dot(tong_qt)} đồng.</b></p>
+            <p>(Bằng chữ: <i>{bang_chu}</i>).</p>
+            <p style="margin-left:20px;margin-bottom:2px;">Trong đó:</p>
+            {_render_cost_table_html([
+                ("Chi phí Sửa chữa", _fmt_money_dot(sc_qt), False, "đồng."),
+                ("Chi phí vật tư, thiết bị", _fmt_money_dot(tb_qt), False, "đồng."),
+                ("Chi phí KTCB khác", _fmt_money_dot(khac_qt), False, "đồng."),
+                ("Tổng giá trị trước thuế", _fmt_money_dot(truoc_thue), True, "đồng."),
+                ("Thuế GTGT", _fmt_money_dot(thue_qt), False, "đồng."),
+                ("Tổng giá trị Quyết toán", _fmt_money_dot(tong_qt), True, "đồng."),
+                ("Chi phí vật tư thu hồi", _fmt_money_dot(vtth_qt), False, "đồng."),
+                ("Chi phí sửa chữa lớn", _fmt_money_dot(scl_qt), True, "đồng"),
+            ], indent_px=35, label_min_width=210)}
             
             <p><b>Điều 2. Nguồn vốn thực hiện công trình</b></p>
             <p>Nguồn vốn: Sửa chữa lớn năm {now.year} của Công ty Điện lực Vũng Tàu.</p>
             
             <p><b>Điều 3. Thực hiện</b></p>
-            <p>Phòng Tài chính Kế toán, Phòng Kế hoạch Vật tư, Phòng Quản lý đầu tư, Văn Phòng Công ty Điện lực Vũng Tàu chịu trách nhiệm thi hành quyết định này./.</p>
+            <p>Phòng Tài chính Kế toán, Phòng Kế hoạch Vật tư, Phòng Quản lý đầu tư, Phòng Kỹ Thuật An Toàn Công ty Điện lực Vũng Tàu chịu trách nhiệm thi hành quyết định này./.</p>
             
             <table style="width:100%;border:none;margin-top:30pt;">
                 <tr>
                     <td style="width:50%;border:none;font-size:10pt;vertical-align:top;">
                         <b>Nơi nhận:</b><br>
-                        - P.KHVT, P.QLĐT, VP (để thực hiện);<br>
+                        - P.KHVT, P.QLĐT, P.KTAT (để thực hiện);<br>
                         - Lưu: VT, TCKT, HMT. (04)
                     </td>
                     <td style="width:50%;text-align:center;border:none;vertical-align:top;">
@@ -1271,8 +1238,8 @@ elif page=="📜 Quyết định phê duyệt":
             </table>
         </div>
         '''
-        data_qd=export_qd_phe_duyet_word(mr,cd)
-        safe=clean_filename(ten)
+        data_qd = export_qd_phe_duyet_word(mr, cd, thqt_data)
+        safe = clean_filename(ten)
         st.markdown(create_download_link(data_qd, f"QD_phe_duyet_{safe}.docx", "📥 Xuất Word - QĐ phê duyệt QT", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), unsafe_allow_html=True)
         st.write('')
         components.html(wrap_preview_html(preview5b), height=900, scrolling=True)
