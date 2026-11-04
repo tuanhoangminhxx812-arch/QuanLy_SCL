@@ -292,6 +292,17 @@ def _format_paragraphs_and_tables(doc, doc_type="qd"):
             p.paragraph_format.first_line_indent = Pt(0)
             continue
 
+        # Tiêu đề các Điều 1, Điều 2, Điều 3 -> Sát lề đầu dòng, in đậm
+        if any(txt.startswith(d) for d in ["Điều 1", "Điều 2", "Điều 3", "Điều 4"]):
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            p.paragraph_format.space_before = Pt(6)
+            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.first_line_indent = Pt(0)
+            for r in p.runs:
+                r.bold = True
+            continue
+
         # Tiêu mục nhỏ hoặc dòng nơi nhận (không thụt lùi 1cm)
         if any(txt.startswith(sh) for sh in ["I/-", "II/", "1/ Phần", "2/  Phần", "2/ Phần", "3/ Phần", "Nơi nhận:", "- P.KHVT", "- Lưu:"]):
             p.paragraph_format.space_before = Pt(0)
@@ -1373,10 +1384,22 @@ def export_qd_phe_duyet_word(main_row, ct_data, thqt_data=None):
                 r.font.name = "Times New Roman"
                 r.font.size = Pt(12)
 
+        # Điều 1. Phê duyệt quyết toán
+        for p in doc.paragraphs:
+            if "Điều 1" in p.text:
+                p.text = "Điều 1. Phê duyệt quyết toán"
+                p.paragraph_format.first_line_indent = Pt(0)
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for r in p.runs:
+                    r.font.name = "Times New Roman"
+                    r.font.size = Pt(13)
+                    r.bold = True
+                break
+
         if len(doc.paragraphs) > 19:
             p19 = doc.paragraphs[19]
             p19.text = ""
-            r1 = p19.add_run(f"\tCông trình: {ten} với tổng giá trị công trình: ")
+            r1 = p19.add_run(f"Công trình: {ten} với tổng giá trị công trình: ")
             r1.font.name = "Times New Roman"
             r1.font.size = Pt(13)
             r2 = p19.add_run(f"{_fmt_money_dot(tong_qt)} đồng.")
@@ -1395,7 +1418,12 @@ def export_qd_phe_duyet_word(main_row, ct_data, thqt_data=None):
         for i, p in enumerate(doc.paragraphs):
             if "Trong đó:" in p.text:
                 idx_trong_do = i
+                p.text = "Trong đó:"
+                for r in p.runs:
+                    r.font.name = "Times New Roman"
+                    r.font.size = Pt(13)
                 break
+
         if idx_trong_do != -1 and idx_trong_do + 1 < len(doc.paragraphs):
             target_p = doc.paragraphs[idx_trong_do + 1]
             qd_cost_items = [
@@ -1411,18 +1439,64 @@ def export_qd_phe_duyet_word(main_row, ct_data, thqt_data=None):
             render_cost_table_docx(doc, qd_cost_items, font_size=Pt(13), left_indent_cm=0.8, target_p=target_p)
             to_remove = []
             for p in doc.paragraphs[idx_trong_do + 1:]:
-                if "Điều 2." in p.text:
+                if "Điều 2" in p.text:
                     break
                 to_remove.append(p)
             for p in to_remove:
                 p._element.getparent().remove(p._element)
 
-        if len(doc.paragraphs) > 33:
-            p33 = doc.paragraphs[33]
-            p33.text = f"\tNguồn vốn: Sửa chữa lớn năm {now_year} của Công ty Điện lực Vũng Tàu."
-            for r in p33.runs:
-                r.font.name = "Times New Roman"
-                r.font.size = Pt(12)
+        # Điều 2 & Nguồn vốn dưới Điều 2
+        for i, p in enumerate(doc.paragraphs):
+            if "Điều 2" in p.text:
+                p.text = "Điều 2. Nguồn vốn thực hiện công trình"
+                p.paragraph_format.first_line_indent = Pt(0)
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for r in p.runs:
+                    r.font.name = "Times New Roman"
+                    r.font.size = Pt(13)
+                    r.bold = True
+                if i + 1 < len(doc.paragraphs):
+                    p_nv = doc.paragraphs[i + 1]
+                    p_nv.text = f"Nguồn vốn: Sửa chữa lớn năm {now_year} của Công ty Điện lực Vũng Tàu."
+                    p_nv.paragraph_format.first_line_indent = Cm(1.0)
+                    for r in p_nv.runs:
+                        r.font.name = "Times New Roman"
+                        r.font.size = Pt(13)
+                break
+
+        # Điều 3 & Thi hành dưới Điều 3
+        for i, p in enumerate(doc.paragraphs):
+            if "Điều 3" in p.text:
+                p.text = "Điều 3. Thực hiện"
+                p.paragraph_format.first_line_indent = Pt(0)
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for r in p.runs:
+                    r.font.name = "Times New Roman"
+                    r.font.size = Pt(13)
+                    r.bold = True
+                if i + 1 < len(doc.paragraphs):
+                    p_th = doc.paragraphs[i + 1]
+                    p_th.text = "Phòng Tài chính Kế toán, Phòng Kế hoạch Vật tư, Phòng Quản lý đầu tư, Phòng Kỹ Thuật An Toàn Công ty Điện lực Vũng Tàu chịu trách nhiệm thi hành quyết định này./."
+                    p_th.paragraph_format.first_line_indent = Cm(1.0)
+                    for r in p_th.runs:
+                        r.font.name = "Times New Roman"
+                        r.font.size = Pt(13)
+                break
+
+        # Dọn dẹp tất cả các paragraph rác sau '- Lưu: ...'
+        idx_luu = -1
+        for i, p in enumerate(doc.paragraphs):
+            if "Lưu:" in p.text:
+                idx_luu = i
+                break
+
+        if idx_luu != -1:
+            to_delete = []
+            for p in doc.paragraphs[idx_luu + 1:]:
+                if len(p._element.xpath('.//*[local-name()="textbox"]')) == 0:
+                    to_delete.append(p)
+            for p in to_delete:
+                p._element.getparent().remove(p._element)
 
         _format_paragraphs_and_tables(doc, doc_type="qd")
         buf = BytesIO()
