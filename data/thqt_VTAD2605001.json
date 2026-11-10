@@ -1,0 +1,408 @@
+{
+  "ten_ct": "SCL Đường dây THT và TBA năm 2026",
+  "ma_ct": "VTAD2605001",
+  "summary": {
+    "sc_dt": 875032728,
+    "sc_qt": 0,
+    "tb_dt": 9449168854,
+    "tb_qt": 8717502676,
+    "khac_dt": 745366107,
+    "khac_qt": 649687573,
+    "truoc_thue_dt": 11667324344,
+    "truoc_thue_qt": 9367190249,
+    "thue_dt": 885565415,
+    "thue_qt": 718256900,
+    "tong_dt": 12552889759,
+    "tong_qt": 10085447149,
+    "vtth_dt": 398483278,
+    "vtth_qt": 346347984,
+    "scl_dt": 11268841066,
+    "scl_qt": 9020842265,
+    "bang_chu": "Mười tỷ không trăm tám mươi lăm triệu bốn trăm bốn mươi bảy nghìn một trăm bốn mươi chín đồng",
+    "tot_ktcb_dt": 2088488870,
+    "tot_ktcb_qt": 1299375146
+  },
+  "ktcb_rows": [
+    {
+      "name": "Chi phí Lập khảo sát, Lập PAKT-DT",
+      "dt": 422486977,
+      "qt": 269578797,
+      "tt": 269578797,
+      "diff": 0
+    },
+    {
+      "name": "2- Chi phí giám sát công trình",
+      "dt": 170473919,
+      "qt": 380108776,
+      "tt": 380108776,
+      "diff": 0
+    },
+    {
+      "name": "Chi phí bảo hiểm công trình",
+      "dt": 20648403,
+      "qt": 0,
+      "tt": 0,
+      "diff": 0
+    },
+    {
+      "name": "Chi phí thẩm tra thiết kế",
+      "dt": 102851274,
+      "qt": 0,
+      "tt": 0,
+      "diff": 0
+    },
+    {
+      "name": "Chi phí thẩm tra dự toán",
+      "dt": 745366107,
+      "qt": 649687573,
+      "tt": 649687573,
+      "diff": 0
+    },
+    {
+      "name": "Chi phí thẩm tra phê duyệt quyết toán",
+      "dt": 28905535,
+      "qt": 0,
+      "tt": 0,
+      "diff": 0
+    },
+    {
+      "name": "Chi phí dự phòng",
+      "dt": 597756655,
+      "qt": 0,
+      "tt": 0,
+      "diff": 0
+    }
+  ],
+  "rows_data": [
+    {
+      "row_idx": 11,
+      "name": "I- Chi phí thiết bị, vật tư (sau thuế)",
+      "dt": 10205102362,
+      "ps_tang": 150413085,
+      "ps_giam": 56780828,
+      "tong_dt": 10298734619,
+      "qt": 9383784570,
+      "note": ""
+    },
+    {
+      "row_idx": 12,
+      "name": "1- Chi phí thiết bị",
+      "dt": 7690795829,
+      "ps_tang": 394374,
+      "ps_giam": 2314815,
+      "tong_dt": 7688875388,
+      "qt": 5459619490,
+      "note": ""
+    },
+    {
+      "row_idx": 13,
+      "name": "1.1 Chi phí thiết bị mua trong nước",
+      "dt": 6808547855,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 6808547855,
+      "qt": 5319369776,
+      "note": ""
+    },
+    {
+      "row_idx": 14,
+      "name": "1.2 Chi phí tháo dỡ, lắp đặt, căn chỉnh, thí nghiệm, hiệu chỉnh",
+      "dt": 882247974,
+      "ps_tang": 394374,
+      "ps_giam": 2314815,
+      "tong_dt": 880327533,
+      "qt": 140249714,
+      "note": ""
+    },
+    {
+      "row_idx": 15,
+      "name": "2- Chi phí vật tư",
+      "dt": 1758373025,
+      "ps_tang": 138877001,
+      "ps_giam": 50260025,
+      "tong_dt": 1846990001,
+      "qt": 3257883186,
+      "note": ""
+    },
+    {
+      "row_idx": 16,
+      "name": "3 - Chi phí thiết bị, vật tư (trước thuế)",
+      "dt": 9449168854,
+      "ps_tang": 139271375,
+      "ps_giam": 52574840,
+      "tong_dt": 9535865389,
+      "qt": 8717502676,
+      "note": ""
+    },
+    {
+      "row_idx": 17,
+      "name": "4- Thuế GTGT",
+      "dt": 755933508,
+      "ps_tang": 11141710,
+      "ps_giam": 4205988,
+      "tong_dt": 762869230,
+      "qt": 666281894,
+      "note": ""
+    },
+    {
+      "row_idx": 18,
+      "name": "II- Chi phí sửa chữa (Sau thuế)",
+      "dt": 945035346,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 945035346,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 19,
+      "name": "1- Chi phí vật liệu",
+      "dt": 13534564,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 13534564,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 20,
+      "name": "2- Chi phí nhân công",
+      "dt": 467832319,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 467832319,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 21,
+      "name": "a) NC phần không áp dụng đơn giá ĐTXD",
+      "dt": 0,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 0,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 22,
+      "name": "b) NC phần áp dụng đơn giá XDCB",
+      "dt": 467832319,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 467832319,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 23,
+      "name": "3- Chi phí máy thi công",
+      "dt": 40044684,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 40044684,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 24,
+      "name": "4- Chi phí chung",
+      "dt": 304091007,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 304091007,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 25,
+      "name": "5- Thu nhập chịu thuế tính trước",
+      "dt": 49530154,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 49530154,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 26,
+      "name": "6- Giá trị sửa chữa trước thuế",
+      "dt": 875032728,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 875032728,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 27,
+      "name": "7- Thuế GTGT",
+      "dt": 70002618,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 70002618,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 28,
+      "name": "III- Chi phí khác (Sau thuế)",
+      "dt": 804995396,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 804995396,
+      "qt": 701662579,
+      "note": ""
+    },
+    {
+      "row_idx": 29,
+      "name": "1- Chi phí Lập khảo sát, Lập PAKT-DT",
+      "dt": 422486977,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 422486977,
+      "qt": 269578797,
+      "note": ""
+    },
+    {
+      "row_idx": 30,
+      "name": "2- Chi phí giám sát công trình",
+      "dt": 170473919,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 170473919,
+      "qt": 380108776,
+      "note": ""
+    },
+    {
+      "row_idx": 31,
+      "name": "3- Chi phí bảo hiểm công trình",
+      "dt": 20648403,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 20648403,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 32,
+      "name": "4- Chi phí thẩm tra phê duyệt quyết toán",
+      "dt": 28905535,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 28905535,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 33,
+      "name": "5- Chi phí thí nghiệm hiệu chỉnh vật liệu",
+      "dt": 102851274,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 102851274,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 34,
+      "name": "6- Chi phí khác trước thuế",
+      "dt": 745366107,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 745366107,
+      "qt": 649687573,
+      "note": ""
+    },
+    {
+      "row_idx": 35,
+      "name": "7- Thuế GTGT",
+      "dt": 59629289,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 59629289,
+      "qt": 51975006,
+      "note": ""
+    },
+    {
+      "row_idx": 36,
+      "name": "IV- Chi phí Dự phòng",
+      "dt": 597756655,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 597756655,
+      "qt": 0,
+      "note": ""
+    },
+    {
+      "row_idx": 37,
+      "name": "V- Giá trị dự toán (không tính VTTH) (I+II+III+IV) Sau thuế",
+      "dt": 12552889759,
+      "ps_tang": 150413085,
+      "ps_giam": 56780828,
+      "tong_dt": 12646522016,
+      "qt": 10085447149,
+      "note": ""
+    },
+    {
+      "row_idx": 38,
+      "name": "1. Giá trị dự toán trước thuế",
+      "dt": 11667324344,
+      "ps_tang": 139271375,
+      "ps_giam": 52574840,
+      "tong_dt": 11754020879,
+      "qt": 9367190249,
+      "note": ""
+    },
+    {
+      "row_idx": 39,
+      "name": "2. Thuế GTGT",
+      "dt": 885565415,
+      "ps_tang": 11141710,
+      "ps_giam": 4205988,
+      "tong_dt": 892501137,
+      "qt": 718256900,
+      "note": ""
+    },
+    {
+      "row_idx": 40,
+      "name": "VI- Giá trị VTTB thu hồi",
+      "dt": 398483278,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 398483278,
+      "qt": 346347984,
+      "note": ""
+    },
+    {
+      "row_idx": 41,
+      "name": "VII- Tổng giá trị dự toán (V-VI)",
+      "dt": 12154406481,
+      "ps_tang": 150413085,
+      "ps_giam": 56780828,
+      "tong_dt": 12248038738,
+      "qt": 9739099165,
+      "note": ""
+    },
+    {
+      "row_idx": 42,
+      "name": "VIII- Tổng chi phí sửa chữa lớn (V.1-VI)",
+      "dt": 11268841066,
+      "ps_tang": 139271375,
+      "ps_giam": 52574840,
+      "tong_dt": 11355537601,
+      "qt": 9020842265,
+      "note": ""
+    },
+    {
+      "row_idx": 45,
+      "name": "NGƯỜI LẬP BIỂU",
+      "dt": 0,
+      "ps_tang": 0,
+      "ps_giam": 0,
+      "tong_dt": 0,
+      "qt": 0,
+      "note": ""
+    }
+  ]
+}
