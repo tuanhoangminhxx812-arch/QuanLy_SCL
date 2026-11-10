@@ -54,16 +54,36 @@ def parse_thqt_excel(file_source):
     ten_ct = ""
     ma_ct = ""
 
-    # Quét tiêu đề từ dòng 1 đến dòng 10
-    for r in range(1, 11):
-        for c in range(1, 8):
-            val = str(ws.cell(r, c).value or "")
-            if "Tên công trình:" in val:
-                ten_ct = val.split("Tên công trình:")[1].strip()
-            elif "Mã Công Trình:" in val or "Mã công trình:" in val:
-                m = re.split(r"Mã [cC]ông [tT]rình:", val)
-                if len(m) > 1:
-                    ma_ct = m[1].strip()
+    # Quét tiêu đề từ dòng 1 đến dòng 15
+    for r in range(1, 15):
+        for c in range(1, 10):
+            val = str(ws.cell(r, c).value or "").strip()
+            if not ten_ct:
+                m_ten = re.split(r"tên\s*công\s*trình\s*:", val, flags=re.IGNORECASE)
+                if len(m_ten) > 1 and m_ten[1].strip():
+                    ten_ct = m_ten[1].strip()
+                elif "tên công trình" in val.lower():
+                    nxt = str(ws.cell(r, c + 1).value or "").strip()
+                    if nxt: ten_ct = nxt
+            if not ma_ct:
+                m_ma = re.split(r"mã\s*(?:công\s*trình|ct)\s*:", val, flags=re.IGNORECASE)
+                if len(m_ma) > 1 and m_ma[1].strip():
+                    ma_ct = m_ma[1].strip()
+                elif any(k in val.lower() for k in ["mã công trình", "mã ct"]):
+                    nxt = str(ws.cell(r, c + 1).value or "").strip()
+                    if nxt: ma_ct = nxt
+
+    # Nếu vẫn chưa thấy mã CT, tìm mẫu định dạng VTADxxxxxxx trong các ô đầu
+    if not ma_ct:
+        for r in range(1, 15):
+            for c in range(1, 10):
+                val = str(ws.cell(r, c).value or "").strip()
+                match = re.search(r"VTAD\d{7}", val, flags=re.IGNORECASE)
+                if match:
+                    ma_ct = match.group(0).upper()
+                    break
+            if ma_ct:
+                break
 
     # Bóc tách 44 dòng dữ liệu
     rows_data = []
@@ -251,3 +271,16 @@ def load_thqt_cache(ma_ct):
             pass
 
     return None
+
+
+def delete_thqt_cache(ma_ct):
+    """Xóa file cache Bảng THQT khỏi thư mục data."""
+    if not ma_ct:
+        return
+    ma_clean = re.sub(r'[^a-zA-Z0-9_\-]', '', str(ma_ct).strip())
+    json_path = os.path.join(DATA_DIR, f"thqt_{ma_clean}.json")
+    xlsx_path = os.path.join(DATA_DIR, f"thqt_{ma_clean}.xlsx")
+    if os.path.exists(json_path):
+        os.remove(json_path)
+    if os.path.exists(xlsx_path):
+        os.remove(xlsx_path)

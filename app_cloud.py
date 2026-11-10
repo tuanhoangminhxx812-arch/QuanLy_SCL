@@ -11,7 +11,7 @@ from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot, _format_date_vn)
 from github_helper import gh_list_files, gh_upload_file, gh_delete_file, gh_upload_root_file, has_token
-from thqt_parser import parse_thqt_excel, save_thqt_cache, load_thqt_cache
+from thqt_parser import parse_thqt_excel, save_thqt_cache, load_thqt_cache, delete_thqt_cache
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
@@ -698,10 +698,11 @@ elif "BẢNG TỔNG HỢP QUYẾT TOÁN" in page:
         with st.container(border=True):
             col_up, col_info = st.columns([2, 3])
             with col_up:
+                up_ver = st.session_state.get(f'thqt_up_ver_{ma_ct}', 0)
                 uploaded_thqt = st.file_uploader(
                     "📤 Tải lên file Bảng THQT (.xlsx / .xls)",
                     type=["xlsx", "xls"],
-                    key=f"uploader_thqt_{ma_ct}",
+                    key=f"uploader_thqt_{ma_ct}_{up_ver}",
                     help="Chọn file Excel Bảng THQT kinh phí SCL đã điền số liệu quyết toán"
                 )
             with col_info:
@@ -719,9 +720,81 @@ elif "BẢNG TỔNG HỢP QUYẾT TOÁN" in page:
             try:
                 raw_bytes = uploaded_thqt.getvalue()
                 parsed_res = parse_thqt_excel(raw_bytes)
-                save_thqt_cache(ma_ct, parsed_res, raw_bytes)
-                st.session_state[f'thqt_{ma_ct}'] = parsed_res
-                st.toast("✅ Đã nạp và lưu dữ liệu Bảng THQT thành công!", icon="🎉")
+                file_ma = str(parsed_res.get('ma_ct', '')).strip()
+                file_ten = str(parsed_res.get('ten_ct', '')).strip()
+
+                norm_curr_ma = re.sub(r'[^a-zA-Z0-9]', '', ma_ct).upper()
+                norm_file_ma = re.sub(r'[^a-zA-Z0-9]', '', file_ma).upper() if file_ma else ""
+
+                is_mismatch = False
+                target_ma = ""
+                target_ten = ""
+
+                if norm_file_ma and norm_file_ma != norm_curr_ma:
+                    is_mismatch = True
+                    match_row = df_th[df_th['Mã CT'].astype(str).str.replace(r'[^a-zA-Z0-9]', '', regex=True).str.upper() == norm_file_ma]
+                    target_ma = match_row.iloc[0]['Mã CT'] if not match_row.empty else file_ma
+                    target_ten = match_row.iloc[0]['Tên công trình'] if not match_row.empty else file_ten
+                elif not norm_file_ma and file_ten:
+                    file_ten_lower = file_ten.lower()
+                    curr_ten_lower = ten.lower()
+                    if file_ten_lower not in curr_ten_lower and curr_ten_lower not in file_ten_lower:
+                        for _, r in df_th.iterrows():
+                            other_ma = str(r.get('Mã CT', '')).strip()
+                            other_ten = str(r.get('Tên công trình', '')).strip()
+                            if other_ma != ma_ct and (other_ten.lower() in file_ten_lower or file_ten_lower in other_ten.lower()):
+                                is_mismatch = True
+                                target_ma = other_ma
+                                target_ten = other_ten
+                                break
+
+                if is_mismatch:
+                    disp_target_ma = target_ma or file_ma
+                    disp_target_ten = target_ten or file_ten
+                    st.error(f"""
+### 🚨 CẢNH BÁO: TẢI NHẦM FILE CHO CÔNG TRÌNH KHÁC!
+• **Công trình bạn đang chọn trên màn hình:** `{ma_ct}` — **{ten}**  
+• **Thông tin phát hiện trong file Excel:** `{disp_target_ma}` — **{disp_target_ten}**  
+
+🛡️ **Hệ thống ĐÃ CHẶN tự động lưu** để không ghi đè làm sai lệch dữ liệu của công trình `{ma_ct}`!  
+Vui lòng chọn một trong các thao tác xử lý bên dưới:
+""")
+                    bcol1, bcol2, bcol3 = st.columns([5, 4, 3])
+                    with bcol1:
+                        switch_label = f"🔀 Tự chuyển sang [{disp_target_ma}] & Lưu"
+                        if st.button(switch_label, type="primary", use_container_width=True, key=f"btn_switch_{ma_ct}_{up_ver}"):
+                            save_to = disp_target_ma
+                            save_thqt_cache(save_to, parsed_res, raw_bytes)
+                            st.session_state[f'thqt_{save_to}'] = parsed_res
+                            st.session_state['selected_ma_ct'] = save_to
+                            if disp_target_ten:
+                                st.session_state['global_project_sel'] = f"{save_to} - {disp_target_ten}"
+                            st.session_state[f'thqt_up_ver_{ma_ct}'] = up_ver + 1
+                            st.toast(f"✅ Đã lưu dữ liệu cho [{save_to}] và chuyển sang công trình này!", icon="🎉")
+                            st.rerun()
+
+                    with bcol2:
+                        if st.button(f"⚠️ Vẫn lưu đè vào [{ma_ct}]", use_container_width=True, key=f"btn_force_{ma_ct}_{up_ver}", help="Cưỡng chế ghi đè dữ liệu file này vào công trình đang chọn"):
+                            save_thqt_cache(ma_ct, parsed_res, raw_bytes)
+                            st.session_state[f'thqt_{ma_ct}'] = parsed_res
+                            st.session_state[f'thqt_up_ver_{ma_ct}'] = up_ver + 1
+                            st.toast(f"⚠️ Đã lưu vào {ma_ct} theo yêu cầu!", icon="⚠️")
+                            st.rerun()
+
+                    with bcol3:
+                        if st.button("❌ Hủy bỏ file này", use_container_width=True, key=f"btn_cancel_{ma_ct}_{up_ver}"):
+                            st.session_state[f'thqt_up_ver_{ma_ct}'] = up_ver + 1
+                            st.toast("Đã hủy bỏ file vừa tải lên.", icon="ℹ️")
+                            st.rerun()
+
+                    st.stop()
+                else:
+                    file_sig = f"{uploaded_thqt.name}_{uploaded_thqt.size}"
+                    if st.session_state.get(f'thqt_last_sig_{ma_ct}') != file_sig:
+                        save_thqt_cache(ma_ct, parsed_res, raw_bytes)
+                        st.session_state[f'thqt_{ma_ct}'] = parsed_res
+                        st.session_state[f'thqt_last_sig_{ma_ct}'] = file_sig
+                        st.toast("✅ Đã nạp và lưu dữ liệu Bảng THQT thành công!", icon="🎉")
             except Exception as e:
                 st.error(f"Lỗi khi đọc file Excel: {e}")
 
@@ -733,6 +806,23 @@ elif "BẢNG TỔNG HỢP QUYẾT TOÁN" in page:
                 st.session_state[f'thqt_{ma_ct}'] = thqt_data
 
         if thqt_data and "summary" in thqt_data:
+            # Thanh trạng thái nguồn dữ liệu + Nút xóa
+            c_info_thqt, c_del_thqt = st.columns([5, 1])
+            with c_info_thqt:
+                orig_ma = thqt_data.get('ma_ct', '')
+                orig_ten = thqt_data.get('ten_ct', '')
+                detail_orig = f" &bull; Nguồn file: <b>{orig_ma}</b> — <i>{orig_ten}</i>" if orig_ma else ""
+                st.markdown(f'<div style="background:#e8f4fd;border-left:4px solid #1a73e8;padding:8px 12px;border-radius:4px;font-size:13px;color:#0d47a1;margin-bottom:12px;">📁 <b>Dữ liệu THQT đang áp dụng cho công trình:</b> <b>{ma_ct}</b>{detail_orig}</div>', unsafe_allow_html=True)
+            with c_del_thqt:
+                if st.button("🗑️ Xóa dữ liệu", key=f"btn_del_thqt_{ma_ct}", type="secondary", help="Xóa dữ liệu Bảng THQT của công trình này để tải lại từ đầu"):
+                    delete_thqt_cache(ma_ct)
+                    st.session_state.pop(f'thqt_{ma_ct}', None)
+                    st.session_state.pop(f'thqt_last_sig_{ma_ct}', None)
+                    up_ver_now = st.session_state.get(f'thqt_up_ver_{ma_ct}', 0)
+                    st.session_state[f'thqt_up_ver_{ma_ct}'] = up_ver_now + 1
+                    st.toast(f"Đã xóa dữ liệu Bảng THQT của {ma_ct}!", icon="🗑️")
+                    st.rerun()
+
             sm = thqt_data["summary"]
             
             # 4 Thẻ chỉ số chính
@@ -805,7 +895,8 @@ elif "BẢNG TỔNG HỢP QUYẾT TOÁN" in page:
             st.info("💡 Chưa có dữ liệu Bảng THQT cho công trình này. Anh hãy bấm nút **'Browse files'** ở trên để tải file Excel **Bảng THQT KP SCL** vào nhé.")
             sample_file = os.path.join(BASE_DIR, "HS_mau", "2. Bảng THQT KP SCL.xlsx")
             if os.path.exists(sample_file):
-                if st.button("📂 Nạp nhanh file Bảng THQT mẫu (HS_mau)", key=f"btn_quick_thqt_{ma_ct}"):
+                btn_lbl = "📂 Nạp Bảng THQT mẫu cho công trình này (HS_mau)" if ma_ct == "VTAD2607001" else "📂 Nạp thử file mẫu (Thuộc công trình VTAD2607001 - Côn Đảo)"
+                if st.button(btn_lbl, key=f"btn_quick_thqt_{ma_ct}"):
                     res_sample = parse_thqt_excel(sample_file)
                     save_thqt_cache(ma_ct, res_sample)
                     st.session_state[f'thqt_{ma_ct}'] = res_sample
