@@ -187,6 +187,26 @@ def parse_thqt_excel(file_source):
     khac_dt = get_val("Chi phí khác trước thuế", 36, "dt")
     khac_qt = get_val("Chi phí khác trước thuế", 36, "qt")
 
+    # Thuế GTGT từng phần
+    tb_dt_vat = 0
+    tb_qt_vat = 0
+    sc_dt_vat = 0
+    sc_qt_vat = 0
+    khac_dt_vat = 0
+    khac_qt_vat = 0
+    for it in rows_data:
+        r = it["row_idx"]
+        if "thuế gtgt" in it["name"].lower():
+            if r < 22 and tb_dt_vat == 0 and tb_qt_vat == 0:
+                tb_dt_vat = it["dt"]
+                tb_qt_vat = it["qt"]
+            elif 22 <= r < 30 and sc_dt_vat == 0 and sc_qt_vat == 0:
+                sc_dt_vat = it["dt"]
+                sc_qt_vat = it["qt"]
+            elif 30 <= r < 38 and khac_dt_vat == 0 and khac_qt_vat == 0:
+                khac_dt_vat = it["dt"]
+                khac_qt_vat = it["qt"]
+
     truoc_thue_dt = get_val("Giá trị dự toán trước thuế", 40, "dt")
     truoc_thue_qt = get_val("Giá trị dự toán trước thuế", 40, "qt")
     if truoc_thue_qt == 0 and (sc_qt > 0 or tb_qt > 0 or khac_qt > 0):
@@ -196,6 +216,10 @@ def parse_thqt_excel(file_source):
 
     thue_dt = get_val("2. Thuế GTGT", 41, "dt")
     thue_qt = get_val("2. Thuế GTGT", 41, "qt")
+    if thue_qt == 0 and (tb_qt_vat > 0 or sc_qt_vat > 0 or khac_qt_vat > 0):
+        thue_qt = tb_qt_vat + sc_qt_vat + khac_qt_vat
+    if thue_dt == 0 and (tb_dt_vat > 0 or sc_dt_vat > 0 or khac_dt_vat > 0):
+        thue_dt = tb_dt_vat + sc_dt_vat + khac_dt_vat
 
     tong_dt = get_val("Giá trị dự toán (không tính VTTH)", 39, "dt")
     tong_qt = get_val("Giá trị dự toán (không tính VTTH)", 39, "qt")
@@ -249,10 +273,20 @@ def parse_thqt_excel(file_source):
     summary = {
         "sc_dt": sc_dt,
         "sc_qt": sc_qt,
+        "sc_dt_vat": sc_dt_vat,
+        "sc_qt_vat": sc_qt_vat,
+        "sc_dt_tong": sc_dt + sc_dt_vat,
+        "sc_qt_tong": sc_qt + sc_qt_vat,
         "tb_dt": tb_dt,
         "tb_qt": tb_qt,
+        "tb_dt_vat": tb_dt_vat,
+        "tb_qt_vat": tb_qt_vat,
+        "tb_dt_tong": tb_dt + tb_dt_vat,
+        "tb_qt_tong": tb_qt + tb_qt_vat,
         "khac_dt": khac_dt,
         "khac_qt": khac_qt,
+        "khac_dt_vat": khac_dt_vat,
+        "khac_qt_vat": khac_qt_vat,
         "truoc_thue_dt": truoc_thue_dt,
         "truoc_thue_qt": truoc_thue_qt,
         "thue_dt": thue_dt,

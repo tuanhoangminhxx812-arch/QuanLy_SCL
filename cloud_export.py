@@ -540,10 +540,108 @@ def get_project_section(db_df, project_name, project_code=None):
     return main_row, ct_data
 
 
-# ============================================================
-# 1. TỜ TRÌNH PHÊ DUYỆT QUYẾT TOÁN DANH MỤC SCL HOÀN THÀNH
-# (Khớp y chang file Tham khao/TTr Duyệt QT DM SCL Hoàn thành.pdf)
-# ============================================================
+def extract_cost_breakdown_full(ct_data, main_row=None):
+    """
+    Trích xuất toàn bộ các chỉ tiêu chi phí chuẩn xác từ database_cong_trinh.xlsx:
+    - Chi phí sửa chữa (Trước thuế B.7, Thuế B.8, Sau thuế B)
+    - Chi phí vật tư thiết bị (Trước thuế A.1+A.2, Thuế A.3, Sau thuế A)
+    - Chi phí KTCB khác (C, Thuế C.6)
+    - Chi phí dự phòng (D)
+    - Tổng trước thuế (E.1)
+    - Tổng thuế GTGT (E.2 hoặc A.3+B.8+C.6)
+    - Tổng sau thuế (E hoặc E.1+E.2)
+    - Vật tư thu hồi (F)
+    - Chi phí SCL (SCL)
+    """
+    bd = get_cost_breakdown(ct_data)
+
+    # 1. Chi phí Sửa chữa (B)
+    b7_dt = bd.get('B.7', {}).get('dt', 0)
+    b7_qt = bd.get('B.7', {}).get('qt', 0)
+    b8_dt = bd.get('B.8', {}).get('dt', 0)
+    b8_qt = bd.get('B.8', {}).get('qt', 0)
+    b_dt = bd.get('B', {}).get('dt', 0)
+    b_qt = bd.get('B', {}).get('qt', 0)
+
+    sc_dt = b7_dt if b7_dt > 0 else (b_dt - b8_dt if b_dt > b8_dt else b_dt)
+    sc_qt = b7_qt if b7_qt > 0 else (b_qt - b8_qt if b_qt > b8_qt else b_qt)
+    sc_dt_vat = b8_dt if b8_dt > 0 else (round(sc_dt * 0.08) if sc_dt > 0 else 0)
+    sc_qt_vat = b8_qt if b8_qt > 0 else (round(sc_qt * 0.08) if sc_qt > 0 else 0)
+    sc_dt_tong = b_dt if b_dt > 0 else (sc_dt + sc_dt_vat)
+    sc_qt_tong = b_qt if b_qt > 0 else (sc_qt + sc_qt_vat)
+
+    # 2. Chi phí Vật tư, thiết bị (A)
+    a1_dt = bd.get('A.1', {}).get('dt', 0)
+    a1_qt = bd.get('A.1', {}).get('qt', 0)
+    a2_dt = bd.get('A.2', {}).get('dt', 0)
+    a2_qt = bd.get('A.2', {}).get('qt', 0)
+    a3_dt = bd.get('A.3', {}).get('dt', 0)
+    a3_qt = bd.get('A.3', {}).get('qt', 0)
+    a_dt = bd.get('A', {}).get('dt', 0)
+    a_qt = bd.get('A', {}).get('qt', 0)
+
+    tb_dt_truoc = a1_dt + a2_dt
+    if tb_dt_truoc == 0 and a_dt > 0:
+        tb_dt_truoc = a_dt - a3_dt if a_dt > a3_dt else a_dt
+    tb_qt_truoc = a1_qt + a2_qt
+    if tb_qt_truoc == 0 and a_qt > 0:
+        tb_qt_truoc = a_qt - a3_qt if a_qt > a3_qt else a_qt
+
+    tb_dt = tb_dt_truoc
+    tb_qt = tb_qt_truoc
+    tb_dt_vat = a3_dt if a3_dt > 0 else (round(tb_dt * 0.1) if tb_dt > 0 else 0)
+    tb_qt_vat = a3_qt if a3_qt > 0 else (round(tb_qt * 0.1) if tb_qt > 0 else 0)
+    tb_dt_tong = a_dt if a_dt > 0 else (tb_dt + tb_dt_vat)
+    tb_qt_tong = a_qt if a_qt > 0 else (tb_qt + tb_qt_vat)
+
+    # 3. Chi phí KTCB khác (C)
+    khac_dt = bd.get('C', {}).get('dt', 0)
+    khac_qt = bd.get('C', {}).get('qt', 0)
+    khac_dt_vat = bd.get('C.6', {}).get('dt', 0)
+    khac_qt_vat = bd.get('C.6', {}).get('qt', 0)
+
+    # 4. Vật tư thu hồi (F)
+    vtth_dt = bd.get('F', {}).get('dt', 0)
+    vtth_qt = bd.get('F', {}).get('qt', 0)
+
+    # 5. Tổng thuế GTGT (thue_qt / thue_dt)
+    e2_qt = bd.get('E.2', {}).get('qt', 0)
+    e2_dt = bd.get('E.2', {}).get('dt', 0)
+    thue_qt = e2_qt if e2_qt > 0 else (tb_qt_vat + sc_qt_vat + khac_qt_vat)
+    thue_dt = e2_dt if e2_dt > 0 else (tb_dt_vat + sc_dt_vat + khac_dt_vat)
+
+    # 6. Tổng giá trị trước thuế (truoc_thue)
+    e1_qt = bd.get('E.1', {}).get('qt', 0)
+    e1_dt = bd.get('E.1', {}).get('dt', 0)
+    truoc_thue = e1_qt if e1_qt > 0 else (sc_qt + tb_qt + khac_qt)
+    truoc_thue_dt = e1_dt if e1_dt > 0 else (sc_dt + tb_dt + khac_dt)
+
+    # 7. Tổng giá trị Quyết toán (sau thuế) (tong_qt)
+    e_qt = bd.get('E', {}).get('qt', 0)
+    e_dt = bd.get('E', {}).get('dt', 0)
+    tong_qt = e_qt if e_qt > 0 else (truoc_thue + thue_qt)
+    tong_dt = e_dt if e_dt > 0 else (truoc_thue_dt + thue_dt)
+
+    # 8. Chi phí SCL
+    scl_row_qt = bd.get('SCL', {}).get('qt', 0)
+    scl_row_dt = bd.get('SCL', {}).get('dt', 0)
+    if scl_row_qt == 0 and main_row is not None and 'Giá trị Q.định phê duyệt QT công trình' in main_row:
+        scl_row_qt = float(main_row.get('Giá trị Q.định phê duyệt QT công trình', 0))
+    scl_qt = scl_row_qt if scl_row_qt > 0 else (truoc_thue - vtth_qt)
+    scl_dt = scl_row_dt if scl_row_dt > 0 else (truoc_thue_dt - vtth_dt)
+
+    return {
+        'sc_dt': sc_dt, 'sc_qt': sc_qt, 'sc_dt_vat': sc_dt_vat, 'sc_qt_vat': sc_qt_vat, 'sc_dt_tong': sc_dt_tong, 'sc_qt_tong': sc_qt_tong,
+        'tb_dt': tb_dt, 'tb_qt': tb_qt, 'tb_dt_vat': tb_dt_vat, 'tb_qt_vat': tb_qt_vat, 'tb_dt_tong': tb_dt_tong, 'tb_qt_tong': tb_qt_tong,
+        'khac_dt': khac_dt, 'khac_qt': khac_qt, 'khac_dt_vat': khac_dt_vat, 'khac_qt_vat': khac_qt_vat,
+        'vtth_dt': vtth_dt, 'vtth_qt': vtth_qt,
+        'truoc_thue': truoc_thue, 'truoc_thue_dt': truoc_thue_dt,
+        'thue_qt': thue_qt, 'thue_dt': thue_dt,
+        'tong_qt': tong_qt, 'tong_dt': tong_dt,
+        'scl_qt': scl_qt, 'scl_dt': scl_dt,
+    }
+
+
 # ============================================================
 # 1. TỜ TRÌNH PHÊ DUYỆT QUYẾT TOÁN DANH MỤC SCL HOÀN THÀNH
 # (Khớp y chang file HS_mau/TTr Duyệt QT DM SCL Hoàn thành.docx)
@@ -574,20 +672,16 @@ def export_ttr_duyet_qt_word(main_row, ct_data, thqt_data=None):
         scl_qt = sm.get('scl_qt', 0)
         bang_chu = sm.get('bang_chu') or doc_so_vn(tong_qt)
     else:
-        bd = get_cost_breakdown(ct_data)
-        scl_qt = bd.get('SCL', {}).get('qt', 0)
-        if scl_qt == 0 and main_row is not None and 'Giá trị Q.định phê duyệt QT công trình' in main_row:
-            scl_qt = float(main_row.get('Giá trị Q.định phê duyệt QT công trình', 0))
-
-        tb_qt = bd.get('A', {}).get('qt', 0)
-        sc_qt = bd.get('B', {}).get('qt', 0)
-        khac_qt = bd.get('C', {}).get('qt', 0)
-        vtth_qt = bd.get('F', {}).get('qt', 0)
-        thue_qt = bd.get('B.8', {}).get('qt', 0)
-        if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
-        truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
-        tong_qt = scl_qt
-        bang_chu = doc_so_vn(scl_qt)
+        cost = extract_cost_breakdown_full(ct_data, main_row)
+        sc_qt = cost['sc_qt']
+        tb_qt = cost['tb_qt']
+        khac_qt = cost['khac_qt']
+        truoc_thue = cost['truoc_thue']
+        thue_qt = cost['thue_qt']
+        tong_qt = cost['tong_qt']
+        vtth_qt = cost['vtth_qt']
+        scl_qt = cost['scl_qt']
+        bang_chu = doc_so_vn(tong_qt)
 
     now_year = datetime.date.today().year
 
@@ -999,8 +1093,18 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
         if thqt_data.get('ma_ct'): ma = thqt_data['ma_ct']
         sc_dt = sm.get('sc_dt', 0)
         sc_qt = sm.get('sc_qt', 0)
+        sc_dt_vat = sm.get('sc_dt_vat', round(sc_dt * 0.08) if sc_dt > 0 else 0)
+        sc_qt_vat = sm.get('sc_qt_vat', round(sc_qt * 0.08) if sc_qt > 0 else 0)
+        sc_dt_tong = sm.get('sc_dt_tong', sc_dt + sc_dt_vat)
+        sc_qt_tong = sm.get('sc_qt_tong', sc_qt + sc_qt_vat)
+
         tb_dt = sm.get('tb_dt', 0)
         tb_qt = sm.get('tb_qt', 0)
+        tb_dt_vat = sm.get('tb_dt_vat', round(tb_dt * 0.1) if tb_dt > 0 else 0)
+        tb_qt_vat = sm.get('tb_qt_vat', round(tb_qt * 0.1) if tb_qt > 0 else 0)
+        tb_dt_tong = sm.get('tb_dt_tong', tb_dt + tb_dt_vat)
+        tb_qt_tong = sm.get('tb_qt_tong', tb_qt + tb_qt_vat)
+
         khac_dt = sm.get('khac_dt', 0)
         khac_qt = sm.get('khac_qt', 0)
         truoc_thue = sm.get('truoc_thue_qt', 0)
@@ -1012,25 +1116,28 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
         tot_ktcb_dt = sm.get('tot_ktcb_dt', 0)
         tot_ktcb_qt = sm.get('tot_ktcb_qt', 0)
     else:
-        bd = get_cost_breakdown(ct_data)
-        scl_dt = bd.get('SCL', {}).get('dt', 0)
-        scl_qt = bd.get('SCL', {}).get('qt', 0)
-        if scl_dt == 0 and main_row is not None and 'Giá trị Dự toán' in main_row:
-            scl_dt = float(main_row.get('Giá trị Dự toán', 0))
-        if scl_qt == 0 and main_row is not None and 'Giá trị Q.định phê duyệt QT công trình' in main_row:
-            scl_qt = float(main_row.get('Giá trị Q.định phê duyệt QT công trình', 0))
+        cost = extract_cost_breakdown_full(ct_data, main_row)
+        sc_dt = cost['sc_dt']
+        sc_qt = cost['sc_qt']
+        sc_dt_vat = cost['sc_dt_vat']
+        sc_qt_vat = cost['sc_qt_vat']
+        sc_dt_tong = cost['sc_dt_tong']
+        sc_qt_tong = cost['sc_qt_tong']
 
-        sc_dt = bd.get('B', {}).get('dt', 0)
-        sc_qt = bd.get('B', {}).get('qt', 0)
-        tb_dt = bd.get('A', {}).get('dt', 0)
-        tb_qt = bd.get('A', {}).get('qt', 0)
-        khac_dt = bd.get('C', {}).get('dt', 0)
-        khac_qt = bd.get('C', {}).get('qt', 0)
-        vtth_qt = bd.get('F', {}).get('qt', 0)
-        thue_qt = bd.get('B.8', {}).get('qt', 0)
-        if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
-        truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
-        tong_qt = scl_qt
+        tb_dt = cost['tb_dt']
+        tb_qt = cost['tb_qt']
+        tb_dt_vat = cost['tb_dt_vat']
+        tb_qt_vat = cost['tb_qt_vat']
+        tb_dt_tong = cost['tb_dt_tong']
+        tb_qt_tong = cost['tb_qt_tong']
+
+        khac_dt = cost['khac_dt']
+        khac_qt = cost['khac_qt']
+        truoc_thue = cost['truoc_thue']
+        thue_qt = cost['thue_qt']
+        tong_qt = cost['tong_qt']
+        vtth_qt = cost['vtth_qt']
+        scl_qt = cost['scl_qt']
         ktcb_list = []
         tot_ktcb_dt = khac_dt
         tot_ktcb_qt = khac_qt
@@ -1118,11 +1225,6 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
                 r.font.size = Pt(12)
 
             # Phần 1: Sửa chữa
-            sc_dt_vat = round(sc_dt * 0.08) if sc_dt > 0 else 0
-            sc_dt_tong = sc_dt + sc_dt_vat
-            sc_qt_vat = round(sc_qt * 0.08) if sc_qt > 0 else 0
-            sc_qt_tong = sc_qt + sc_qt_vat
-
             _set_t1_cell(t_sc_tb.cell(1, 1), _fmt_money_dot(sc_dt))
             _set_t1_cell(t_sc_tb.cell(1, 2), _fmt_money_dot(sc_dt_vat))
             _set_t1_cell(t_sc_tb.cell(1, 3), _fmt_money_dot(sc_dt_tong))
@@ -1140,11 +1242,6 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
             _set_t1_cell(t_sc_tb.cell(4, 3), "0")
 
             # Phần 2: Vật tư, thiết bị
-            tb_dt_vat = round(tb_dt * 0.08) if tb_dt > 0 else 0
-            tb_dt_tong = tb_dt + tb_dt_vat
-            tb_qt_vat = round(tb_qt * 0.08) if tb_qt > 0 else 0
-            tb_qt_tong = tb_qt + tb_qt_vat
-
             _set_t1_cell(t_sc_tb.cell(7, 1), _fmt_money_dot(tb_dt))
             _set_t1_cell(t_sc_tb.cell(7, 2), _fmt_money_dot(tb_dt_vat))
             _set_t1_cell(t_sc_tb.cell(7, 3), _fmt_money_dot(tb_dt_tong))
@@ -1510,21 +1607,16 @@ def export_qd_phe_duyet_word(main_row, ct_data, thqt_data=None):
         scl_qt = sm.get('scl_qt', 0)
         bang_chu = sm.get('bang_chu') or doc_so_vn(tong_qt)
     else:
-        bd = get_cost_breakdown(ct_data)
-        scl_qt = bd.get('SCL', {}).get('qt', 0)
-        if scl_qt == 0 and main_row is not None and 'Giá trị Q.định phê duyệt QT công trình' in main_row:
-            scl_qt = float(main_row.get('Giá trị Q.định phê duyệt QT công trình', 0))
-
-        tb_qt = bd.get('A', {}).get('qt', 0)
-        sc_qt = bd.get('B', {}).get('qt', 0)
-        khac_qt = bd.get('C', {}).get('qt', 0)
-        vtth_qt = bd.get('F', {}).get('qt', 0)
-        thue_qt = bd.get('B.8', {}).get('qt', 0)
-
-        if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
-        truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
-        tong_qt = scl_qt
-        bang_chu = doc_so_vn(scl_qt)
+        cost = extract_cost_breakdown_full(ct_data, main_row)
+        sc_qt = cost['sc_qt']
+        tb_qt = cost['tb_qt']
+        khac_qt = cost['khac_qt']
+        truoc_thue = cost['truoc_thue']
+        thue_qt = cost['thue_qt']
+        tong_qt = cost['tong_qt']
+        vtth_qt = cost['vtth_qt']
+        scl_qt = cost['scl_qt']
+        bang_chu = doc_so_vn(tong_qt) if tong_qt > 0 else ''
 
     now_year = datetime.date.today().year
 

@@ -10,7 +10,7 @@ if BASE_DIR not in sys.path:
 
 from data_helpers import load_tonghop, load_pm092, load_gia_tri_hop_dong, load_capnhat_tiendo, load_pm092_monthly
 from form_module import load_db_data, doc_so_vn
-from cloud_export import (get_project_section, get_cost_breakdown,
+from cloud_export import (get_project_section, get_cost_breakdown, extract_cost_breakdown_full,
     export_ttr_duyet_qt_word,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot, _format_date_vn)
@@ -941,19 +941,16 @@ elif "TỜ TRÌNH" in page:
             bang_chu = sm.get("bang_chu") or doc_so_vn(tong_qt)
             is_from_thqt = True
         else:
-            bd = get_cost_breakdown(cd)
-            scl_qt = bd.get('SCL', {}).get('qt', 0)
-            if scl_qt == 0 and mr is not None and 'Giá trị Q.định phê duyệt QT công trình' in mr:
-                scl_qt = float(mr.get('Giá trị Q.định phê duyệt QT công trình', 0))
-            thue_qt = bd.get('B.8', {}).get('qt', 0)
-            sc_qt = bd.get('B', {}).get('qt', 0)
-            tb_qt = bd.get('A', {}).get('qt', 0)
-            khac_qt = bd.get('C', {}).get('qt', 0)
-            vtth_qt = bd.get('F', {}).get('qt', 0)
-            if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
-            truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
-            tong_qt = scl_qt
-            bang_chu = doc_so_vn(tong_qt)
+            cost = extract_cost_breakdown_full(cd, mr)
+            sc_qt = cost['sc_qt']
+            tb_qt = cost['tb_qt']
+            khac_qt = cost['khac_qt']
+            truoc_thue = cost['truoc_thue']
+            thue_qt = cost['thue_qt']
+            tong_qt = cost['tong_qt']
+            vtth_qt = cost['vtth_qt']
+            scl_qt = cost['scl_qt']
+            bang_chu = doc_so_vn(tong_qt) if tong_qt > 0 else ''
             is_from_thqt = False
 
         if is_from_thqt:
@@ -1042,8 +1039,18 @@ elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM
             if thqt_data.get('ma_ct'): ma_ct = thqt_data['ma_ct']
             sc_dt = sm.get("sc_dt", 0)
             sc_qt = sm.get("sc_qt", 0)
+            sc_dt_vat = sm.get("sc_dt_vat", 0)
+            sc_qt_vat = sm.get("sc_qt_vat", 0)
+            sc_dt_tong = sm.get("sc_dt_tong", sc_dt + sc_dt_vat)
+            sc_qt_tong = sm.get("sc_qt_tong", sc_qt + sc_qt_vat)
+
             tb_dt = sm.get("tb_dt", 0)
             tb_qt = sm.get("tb_qt", 0)
+            tb_dt_vat = sm.get("tb_dt_vat", 0)
+            tb_qt_vat = sm.get("tb_qt_vat", 0)
+            tb_dt_tong = sm.get("tb_dt_tong", tb_dt + tb_dt_vat)
+            tb_qt_tong = sm.get("tb_qt_tong", tb_qt + tb_qt_vat)
+
             khac_dt = sm.get("khac_dt", 0)
             khac_qt = sm.get("khac_qt", 0)
             truoc_thue = sm.get("truoc_thue_qt", 0)
@@ -1056,24 +1063,28 @@ elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM
             tot_ktcb_qt = sm.get("tot_ktcb_qt", 0)
             is_from_thqt = True
         else:
-            bd = get_cost_breakdown(cd)
-            scl_dt = bd.get('SCL', {}).get('dt', 0)
-            scl_qt = bd.get('SCL', {}).get('qt', 0)
-            if scl_dt == 0 and mr is not None and 'Giá trị Dự toán' in mr:
-                scl_dt = float(mr.get('Giá trị Dự toán', 0))
-            if scl_qt == 0 and mr is not None and 'Giá trị Q.định phê duyệt QT công trình' in mr:
-                scl_qt = float(mr.get('Giá trị Q.định phê duyệt QT công trình', 0))
-            sc_dt = bd.get('B', {}).get('dt', 0)
-            sc_qt = bd.get('B', {}).get('qt', 0)
-            tb_dt = bd.get('A', {}).get('dt', 0)
-            tb_qt = bd.get('A', {}).get('qt', 0)
-            khac_dt = bd.get('C', {}).get('dt', 0)
-            khac_qt = bd.get('C', {}).get('qt', 0)
-            vtth_qt = bd.get('F', {}).get('qt', 0)
-            thue_qt = bd.get('B.8', {}).get('qt', 0)
-            if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
-            truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
-            tong_qt = scl_qt
+            cost = extract_cost_breakdown_full(cd, mr)
+            sc_dt = cost['sc_dt']
+            sc_qt = cost['sc_qt']
+            sc_dt_vat = cost['sc_dt_vat']
+            sc_qt_vat = cost['sc_qt_vat']
+            sc_dt_tong = cost['sc_dt_tong']
+            sc_qt_tong = cost['sc_qt_tong']
+
+            tb_dt = cost['tb_dt']
+            tb_qt = cost['tb_qt']
+            tb_dt_vat = cost['tb_dt_vat']
+            tb_qt_vat = cost['tb_qt_vat']
+            tb_dt_tong = cost['tb_dt_tong']
+            tb_qt_tong = cost['tb_qt_tong']
+
+            khac_dt = cost['khac_dt']
+            khac_qt = cost['khac_qt']
+            truoc_thue = cost['truoc_thue']
+            thue_qt = cost['thue_qt']
+            tong_qt = cost['tong_qt']
+            vtth_qt = cost['vtth_qt']
+            scl_qt = cost['scl_qt']
             ktcb_list = []
             tot_ktcb_dt = khac_dt
             tot_ktcb_qt = khac_qt
@@ -1104,16 +1115,6 @@ elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM
         else: dv_lines.append("Công ty CP Tư vấn Dịch vụ Xây dựng Thái Bình.")
         dv_lines.append("Công ty CP Tư vấn Xây dựng Điện lực TP HCM.")
         dv_html = "<br>".join(dv_lines)
-
-        sc_dt_vat = round(sc_dt * 0.08) if sc_dt > 0 else 0
-        sc_dt_tong = sc_dt + sc_dt_vat
-        sc_qt_vat = round(sc_qt * 0.08) if sc_qt > 0 else 0
-        sc_qt_tong = sc_qt + sc_qt_vat
-
-        tb_dt_vat = round(tb_dt * 0.08) if tb_dt > 0 else 0
-        tb_dt_tong = tb_dt + tb_dt_vat
-        tb_qt_vat = round(tb_qt * 0.08) if tb_qt > 0 else 0
-        tb_qt_tong = tb_qt + tb_qt_vat
 
         # Xây dựng bảng 8 cột KTCB khác
         if not ktcb_list:
@@ -1369,19 +1370,16 @@ elif "QUYẾT ĐỊNH" in page:
             bang_chu = sm.get("bang_chu") or doc_so_vn(tong_qt)
             is_from_thqt = True
         else:
-            bd = get_cost_breakdown(cd)
-            scl_qt = bd.get('SCL', {}).get('qt', 0)
-            if scl_qt == 0 and mr is not None and 'Giá trị Q.định phê duyệt QT công trình' in mr:
-                scl_qt = float(mr.get('Giá trị Q.định phê duyệt QT công trình', 0))
-            tb_qt = bd.get('A', {}).get('qt', 0)
-            sc_qt = bd.get('B', {}).get('qt', 0)
-            khac_qt = bd.get('C', {}).get('qt', 0)
-            vtth_qt = bd.get('F', {}).get('qt', 0)
-            thue_qt = bd.get('B.8', {}).get('qt', 0)
-            if thue_qt == 0 and scl_qt > 0: thue_qt = int(round(scl_qt - scl_qt / 1.08))
-            truoc_thue = scl_qt - thue_qt if scl_qt >= thue_qt else scl_qt
-            tong_qt = scl_qt
-            bang_chu = doc_so_vn(scl_qt) if scl_qt > 0 else ''
+            cost = extract_cost_breakdown_full(cd, mr)
+            sc_qt = cost['sc_qt']
+            tb_qt = cost['tb_qt']
+            khac_qt = cost['khac_qt']
+            truoc_thue = cost['truoc_thue']
+            thue_qt = cost['thue_qt']
+            tong_qt = cost['tong_qt']
+            vtth_qt = cost['vtth_qt']
+            scl_qt = cost['scl_qt']
+            bang_chu = doc_so_vn(tong_qt) if tong_qt > 0 else ''
             is_from_thqt = False
 
         if is_from_thqt:
