@@ -8,16 +8,62 @@ Phục vụ tự động trích xuất các chỉ tiêu tài chính và điền 
 """
 
 import os
+import sys
 import re
 import json
 from io import BytesIO
 import openpyxl
 import pandas as pd
-from form_module import doc_so_vn
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
+
+try:
+    from form_module import doc_so_vn
+except Exception:
+    def doc_so_vn(n):
+        if not n: return "Không đồng"
+        try: n = int(n)
+        except: return ""
+        if n == 0: return "Không đồng"
+        if n < 0: return "Âm " + doc_so_vn(-n)
+        digits = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
+        units = ["", "nghìn", "triệu", "tỷ"]
+        def decode_3(num, full):
+            res = []
+            h = num // 100
+            t = (num % 100) // 10
+            u = num % 10
+            if full or h > 0: res.append(f"{digits[h]} trăm")
+            if t > 1:
+                res.append(f"{digits[t]} mươi")
+                if u == 1: res.append("mốt")
+                elif u == 5: res.append("lăm")
+                elif u > 0: res.append(digits[u])
+            elif t == 1:
+                res.append("mười")
+                if u == 5: res.append("lăm")
+                elif u > 0: res.append(digits[u])
+            elif res and u > 0: res.append(f"lẻ {digits[u]}")
+            elif not res and u > 0: res.append(digits[u])
+            return " ".join(res)
+        blocks = []
+        while n > 0:
+            blocks.append(n % 1000)
+            n //= 1000
+        words = []
+        for i, block in enumerate(blocks):
+            if block == 0 and i > 0: continue
+            full = (i < len(blocks)-1)
+            unit = units[i % 4]
+            for _ in range(i // 4): unit += " tỷ" 
+            words.append(f"{decode_3(block, full)} {unit}".strip())
+        res = " ".join(reversed(words)).strip().replace("  ", " ").strip()
+        return res[0].upper() + res[1:] + " đồng"
 
 
 def _clean_num(val):

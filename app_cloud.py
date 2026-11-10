@@ -1,9 +1,13 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import os, re, datetime
+import os, sys, re, datetime
 from io import BytesIO
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from data_helpers import load_tonghop, load_pm092, load_gia_tri_hop_dong, load_capnhat_tiendo, load_pm092_monthly
 from form_module import load_db_data, doc_so_vn
 from cloud_export import (get_project_section, get_cost_breakdown,
@@ -11,7 +15,14 @@ from cloud_export import (get_project_section, get_cost_breakdown,
     export_tmqt_word, export_phieu_tham_tra_word,
     export_bao_cao_tham_tra_word, export_qd_phe_duyet_word, _safe_int, _fmt_money_dot, _format_date_vn)
 from github_helper import gh_list_files, gh_upload_file, gh_delete_file, gh_upload_root_file, has_token
-from thqt_parser import parse_thqt_excel, save_thqt_cache, load_thqt_cache, delete_thqt_cache
+
+try:
+    from thqt_parser import parse_thqt_excel, save_thqt_cache, load_thqt_cache, delete_thqt_cache
+except Exception as _e_thqt:
+    def parse_thqt_excel(*args, **kwargs): return {}
+    def save_thqt_cache(*args, **kwargs): pass
+    def load_thqt_cache(*args, **kwargs): return None
+    def delete_thqt_cache(*args, **kwargs): pass
 
 st.set_page_config(page_title="Quản lý Quyết toán SCL", layout="wide", page_icon="⚡")
 
