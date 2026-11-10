@@ -982,7 +982,38 @@ elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM
         else:
             st.info("💡 Chưa tải lên file Bảng THQT cho công trình này. Hệ thống đang lấy số liệu tạm từ cơ sở dữ liệu.")
 
-        # Xây dựng bảng 5 cột KTCB khác
+        so_hd_xl = str(mr.get('Số Hợp đồng xây lắp', '')).strip() if mr is not None and pd.notna(mr.get('Số Hợp đồng xây lắp')) else ''
+        so_hd_tk = str(mr.get('Số Hợp đồng thiết kế', '')).strip() if mr is not None and pd.notna(mr.get('Số Hợp đồng thiết kế')) else ''
+        so_hd_gs = str(mr.get('Số Hợp đồng giám sát', '')).strip() if mr is not None and pd.notna(mr.get('Số Hợp đồng giám sát')) else ''
+        don_vi_th = str(mr.get('Đơn vị QL', '')).strip() if mr is not None and pd.notna(mr.get('Đơn vị QL')) else 'Công ty Điện lực Vũng Tàu'
+        ghi_chu = str(mr.get('Ghi chú', 'đấu thầu rộng rãi')).strip() if mr is not None and pd.notna(mr.get('Ghi chú')) else 'đấu thầu rộng rãi'
+
+        hd_lines = []
+        if so_hd_xl: hd_lines.append(f"{so_hd_xl}.")
+        else: hd_lines.append("40-2026/HĐXL/PCVT-TB.")
+        if so_hd_tk: hd_lines.append(f"{so_hd_tk}.")
+        else: hd_lines.append("41-2026/HĐTV/PCVT-TVĐ.")
+        if so_hd_gs: hd_lines.append(f"{so_hd_gs}.")
+        else: hd_lines.append("03-2026/HĐTV/PCVT-TVĐ.")
+        hd_html = "<br>".join(hd_lines)
+
+        dv_lines = []
+        if don_vi_th: dv_lines.append(f"{don_vi_th}.")
+        else: dv_lines.append("Công ty CP Tư vấn Dịch vụ Xây dựng Thái Bình.")
+        dv_lines.append("Công ty CP Tư vấn Xây dựng Điện lực TP HCM.")
+        dv_html = "<br>".join(dv_lines)
+
+        sc_dt_vat = round(sc_dt * 0.08) if sc_dt > 0 else 0
+        sc_dt_tong = sc_dt + sc_dt_vat
+        sc_qt_vat = round(sc_qt * 0.08) if sc_qt > 0 else 0
+        sc_qt_tong = sc_qt + sc_qt_vat
+
+        tb_dt_vat = round(tb_dt * 0.08) if tb_dt > 0 else 0
+        tb_dt_tong = tb_dt + tb_dt_vat
+        tb_qt_vat = round(tb_qt * 0.08) if tb_qt > 0 else 0
+        tb_qt_tong = tb_qt + tb_qt_vat
+
+        # Xây dựng bảng 8 cột KTCB khác
         if not ktcb_list:
             ktcb_list = [
                 {"name": "Chi phí Lập khảo sát, Lập PAKT-DT", "dt": 46296296, "qt": 46296296, "tt": 46296296, "diff": 0},
@@ -993,25 +1024,46 @@ elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM
                 {"name": "Chi phí thẩm tra phê duyệt quyết toán", "dt": 5619375, "qt": 0, "tt": 0, "diff": 0},
                 {"name": "Chi phí dự phòng", "dt": 49292765, "qt": 0, "tt": 0, "diff": 0},
             ]
-            tot_ktcb_dt = sum(x["dt"] for x in ktcb_list)
-            tot_ktcb_qt = sum(x["qt"] for x in ktcb_list)
+
+        tot_ktcb_dt = 0
+        tot_ktcb_dt_thue = 0
+        tot_ktcb_qt = 0
+        tot_ktcb_qt_thue = 0
 
         ktcb_rows_html = ""
         for it in ktcb_list:
+            name = it.get('name', '')
+            dt = float(it.get('dt', 0))
+            qt = float(it.get('qt', 0))
+            tt = float(it.get('tt', qt))
+            is_dp = 'dự phòng' in name.lower()
+
+            dt_thue = 0 if is_dp else float(it.get('dt_thue', round(dt * 0.08)))
+            qt_thue = 0 if is_dp else float(it.get('qt_thue', round(qt * 0.08))) if qt > 0 else 0
+            tt_thue = qt_thue
+
+            tot_ktcb_dt += dt
+            tot_ktcb_dt_thue += dt_thue
+            tot_ktcb_qt += qt
+            tot_ktcb_qt_thue += qt_thue
+
+            s_dt = _fmt_money_dot(dt)
+            s_dt_thue = _fmt_money_dot(dt_thue) if dt_thue > 0 else '0'
+            s_qt = _fmt_money_dot(qt) if qt > 0 else '0'
+            s_qt_thue = _fmt_money_dot(qt_thue) if (qt > 0 and qt_thue > 0) else ('' if qt == 0 else '0')
+            s_tt = _fmt_money_dot(tt) if tt > 0 else '0'
+            s_tt_thue = _fmt_money_dot(tt_thue) if tt_thue > 0 else '0'
+
             ktcb_rows_html += f'''<tr>
-                <td style="border:1px solid #000;padding:4pt 6pt;">{it['name']}</td>
-                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(it.get('dt',0))}</td>
-                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(it.get('qt',0))}</td>
-                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(it.get('tt', it.get('qt',0)))}</td>
-                <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">0</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;">{name}</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;text-align:right;">{s_dt}</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;text-align:right;">{s_dt_thue}</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;text-align:right;">{s_qt}</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;text-align:right;">{s_qt_thue}</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;text-align:right;">{s_tt}</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;text-align:right;">{s_tt_thue}</td>
+                <td style="border:1px solid #000;padding:3pt 5pt;text-align:right;">0</td>
             </tr>\n'''
-        ktcb_rows_html += f'''<tr style="font-weight:bold;background:#f0f4f8;">
-            <td style="border:1px solid #000;padding:4pt 6pt;">Tổng cộng</td>
-            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(tot_ktcb_dt)}</td>
-            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt)}</td>
-            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt)}</td>
-            <td style="border:1px solid #000;padding:4pt 6pt;text-align:right;">0</td>
-        </tr>\n'''
 
         st.markdown('<p class="section-title">Xem trước Báo cáo thẩm tra quyết toán (Chuẩn HS mẫu)</p>', unsafe_allow_html=True)
         preview5a = f'''
@@ -1042,37 +1094,108 @@ elif "BÁO CÁO THẨM TRA" in page or "BÁO CÁO THẨN TRA" in page or "THẨM
             <p><b><i>I/- Nội dung thẩm tra:</i></b></p>
             <p style="margin-left:20px;">Tên công trình: {ten}.</p>
             <p style="margin-left:20px;">Đơn vị quản lý: Công ty Điện lực Vũng Tàu.</p>
-            <p style="margin-left:20px;">Phương thức chọn thầu thực hiện: đấu thầu rộng rãi</p>
-            <p style="margin-left:20px;">Hợp đồng số:<br>40-2026/HĐXL/PCVT-TB.<br>41-2026/HĐTV/PCVT-TVĐ.<br>03-2026/HĐTV/PCVT-TVĐ.</p>
-            <p style="margin-left:20px;">Đơn vị thực hiện:<br>Công ty CP Tư vấn Dịch vụ Xây dựng Thái Bình.<br>Công ty CP Tư vấn Xây dựng Điện lực TP HCM.</p>
+            <p style="margin-left:20px;">Phương thức chọn thầu thực hiện: {ghi_chu}</p>
+            <p style="margin-left:20px;">Hợp đồng số:<br>{hd_html}</p>
+            <p style="margin-left:20px;">Đơn vị thực hiện:<br>{dv_html}</p>
             
-            <p><b>Nội dung cụ thể:</b></p>
-            <p style="margin-left:20px;margin-bottom:2px;"><b>1/ Phần sửa chữa:</b></p>
-            {_render_cost_table_html([
-                ("- Số dự toán", _fmt_money_dot(sc_dt), False, "đồng."),
-                ("- Số quyết toán", _fmt_money_dot(sc_qt), False, "đồng."),
-                ("- Số thẩm tra", _fmt_money_dot(sc_qt), False, "đồng."),
-                ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
-            ], indent_px=35, label_min_width=175)}
+            <p style="margin-bottom:6pt;"><b>Nội dung cụ thể:</b></p>
+            <table style="width:100%;border-collapse:collapse;margin:6pt 0 12pt 0;font-size:11pt;border:1px solid #000;">
+                <tr style="font-weight:bold;background:#f0f4f8;">
+                    <td style="border:1px solid #000;padding:5pt 8pt;width:34%;">1/ Phần sửa chữa:</td>
+                    <td style="border:1px solid #000;padding:5pt 8pt;text-align:center;width:22%;">Trước thuế</td>
+                    <td style="border:1px solid #000;padding:5pt 8pt;text-align:center;width:20%;">thuế</td>
+                    <td style="border:1px solid #000;padding:5pt 8pt;text-align:center;width:24%;">Tổng tiền</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số dự toán</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_dt)}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_dt_vat)}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_dt_tong)}</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số quyết toán</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_qt)}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_qt_vat)}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_qt_tong)}</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số thẩm tra</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_qt)}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_qt_vat)}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(sc_qt_tong)}</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số chênh lệch TTr/QT:</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">0</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">0</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">0</td>
+                </tr>
+                <tr style="height:10pt;">
+                    <td style="border:1px solid #000;padding:1pt 8pt;">&nbsp;</td>
+                    <td style="border:1px solid #000;padding:1pt 8pt;">&nbsp;</td>
+                    <td style="border:1px solid #000;padding:1pt 8pt;">&nbsp;</td>
+                    <td style="border:1px solid #000;padding:1pt 8pt;">&nbsp;</td>
+                </tr>
+                <tr style="font-weight:bold;background:#f0f4f8;">
+                    <td style="border:1px solid #000;padding:5pt 8pt;">2/ &nbsp;Phần vật tư, thiết bị:</td>
+                    <td style="border:1px solid #000;padding:5pt 8pt;text-align:center;">Trước thuế</td>
+                    <td style="border:1px solid #000;padding:5pt 8pt;text-align:center;">thuế</td>
+                    <td style="border:1px solid #000;padding:5pt 8pt;text-align:center;">Tổng tiền</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số dự toán</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_dt) if tb_dt > 0 else '0'}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_dt_vat) if tb_dt_vat > 0 else '0'}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_dt_tong) if tb_dt_tong > 0 else '0'}</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số quyết toán</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_qt) if tb_qt > 0 else '0'}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_qt_vat) if tb_qt_vat > 0 else '0'}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_qt_tong) if tb_qt_tong > 0 else '0'}</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số thẩm tra</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_qt) if tb_qt > 0 else '0'}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_qt_vat) if tb_qt_vat > 0 else '0'}</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">{_fmt_money_dot(tb_qt_tong) if tb_qt_tong > 0 else '0'}</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000;padding:4pt 8pt;">- Số chênh lệch TTr/QT:</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">0</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">0</td>
+                    <td style="border:1px solid #000;padding:4pt 8pt;text-align:right;">0</td>
+                </tr>
+            </table>
             
-            <p style="margin-left:20px;margin-bottom:2px;margin-top:6pt;"><b>2/  Phần vật tư, thiết bị:</b></p>
-            {_render_cost_table_html([
-                ("- Số dự toán", _fmt_money_dot(tb_dt), False, "đồng."),
-                ("- Số quyết toán", _fmt_money_dot(tb_qt), False, "đồng."),
-                ("- Số thẩm tra", _fmt_money_dot(tb_qt), False, "đồng."),
-                ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
-            ], indent_px=35, label_min_width=175)}
-            
-            <p class="no-indent" style="margin-top:6pt;"><b>3/ Phần kiến thiết cơ bản khác:</b></p>
-            <table style="width:100%;border-collapse:collapse;margin:8pt 0;font-size:11pt;border:1px solid #000;">
-                <tr style="font-weight:bold;text-align:center;background:#f0f0f0;">
-                    <td style="border:1px solid #000;padding:5pt;text-align:center;width:40%;">Nội dung</td>
-                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Dự toán<br>được duyệt</td>
-                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Giá trị<br>quyết toán</td>
-                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Số thẩm tra</td>
-                    <td style="border:1px solid #000;padding:5pt;width:15%;text-align:center;">Chênh lệch<br>TTr/QT</td>
+            <p class="no-indent" style="margin-top:10pt;"><b>3/ Phần kiến thiết cơ bản khác:</b></p>
+            <table style="width:100%;border-collapse:collapse;margin:6pt 0 12pt 0;font-size:9.5pt;border:1px solid #000;">
+                <tr style="font-weight:bold;text-align:center;background:#f0f4f8;">
+                    <td rowspan="2" style="border:1px solid #000;padding:4pt;vertical-align:middle;width:28%;">Nội dung</td>
+                    <td colspan="2" style="border:1px solid #000;padding:4pt;text-align:center;width:20%;">Dự toán được duyệt</td>
+                    <td colspan="2" style="border:1px solid #000;padding:4pt;text-align:center;width:20%;">Giá trị quyết toán</td>
+                    <td colspan="2" style="border:1px solid #000;padding:4pt;text-align:center;width:20%;">Số thẩm tra</td>
+                    <td rowspan="2" style="border:1px solid #000;padding:4pt;vertical-align:middle;width:12%;">Chênh lệch<br>TTr/QT</td>
+                </tr>
+                <tr style="font-weight:bold;text-align:center;background:#f0f4f8;">
+                    <td style="border:1px solid #000;padding:3pt;text-align:center;width:10%;">Trước thuế</td>
+                    <td style="border:1px solid #000;padding:3pt;text-align:center;width:10%;">Thuế</td>
+                    <td style="border:1px solid #000;padding:3pt;text-align:center;width:10%;">Trước thuế</td>
+                    <td style="border:1px solid #000;padding:3pt;text-align:center;width:10%;">Thuế</td>
+                    <td style="border:1px solid #000;padding:3pt;text-align:center;width:10%;">Trước thuế</td>
+                    <td style="border:1px solid #000;padding:3pt;text-align:center;width:10%;">Thuế</td>
                 </tr>
                 {ktcb_rows_html}
+                <tr style="font-weight:bold;background:#f0f4f8;">
+                    <td style="border:1px solid #000;padding:4pt 5pt;">Tổng cộng</td>
+                    <td style="border:1px solid #000;padding:4pt 5pt;text-align:right;">{_fmt_money_dot(tot_ktcb_dt)}</td>
+                    <td style="border:1px solid #000;padding:4pt 5pt;text-align:right;">{_fmt_money_dot(tot_ktcb_dt_thue)}</td>
+                    <td style="border:1px solid #000;padding:4pt 5pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt)}</td>
+                    <td style="border:1px solid #000;padding:4pt 5pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt_thue)}</td>
+                    <td style="border:1px solid #000;padding:4pt 5pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt)}</td>
+                    <td style="border:1px solid #000;padding:4pt 5pt;text-align:right;">{_fmt_money_dot(tot_ktcb_qt_thue)}</td>
+                    <td style="border:1px solid #000;padding:4pt 5pt;text-align:right;">0</td>
+                </tr>
             </table>
 
             <p><b><i>II/ Kết luận:</i></b></p>
