@@ -14,6 +14,7 @@ và Phụ lục 10 - Quyết định số 202/QĐ-HĐTV ngày 31/12/2025 của E
 import os
 import re
 import datetime
+import copy
 from io import BytesIO
 import pandas as pd
 from docx import Document as DocxDocument
@@ -183,6 +184,104 @@ def update_ktcb_table_docx(t_ktcb, ktcb_list, tot_dt, tot_qt):
         r.bold = True
 
 
+def update_ktcb_table_8cols(t_ktcb, ktcb_list):
+    """Cập nhật động các dòng bảng KTCB khác 8 cột trong Báo cáo Thẩm tra, tự co giãn dòng và định dạng số"""
+    header_rows_count = 2
+    current_data_rows = len(t_ktcb.rows) - header_rows_count - 1
+    needed_data_rows = len(ktcb_list)
+
+    while current_data_rows < needed_data_rows:
+        last_row = t_ktcb.rows[-1]
+        new_row = t_ktcb.add_row()
+        last_row._tr.addprevious(new_row._tr)
+        sample_row = t_ktcb.rows[2]
+        for c_idx, c in enumerate(new_row.cells):
+            s_c = sample_row.cells[c_idx]
+            if s_c._tc.tcPr is not None:
+                borders = s_c._tc.tcPr.xpath('./w:tcBorders')
+                if borders:
+                    c._tc.get_or_add_tcPr().append(copy.deepcopy(borders[0]))
+            if s_c.width:
+                c.width = s_c.width
+        current_data_rows += 1
+
+    while current_data_rows > needed_data_rows:
+        row_to_del = t_ktcb.rows[-2]
+        row_to_del._tr.getparent().remove(row_to_del._tr)
+        current_data_rows -= 1
+
+    tot_dt = 0
+    tot_dt_thue = 0
+    tot_qt = 0
+    tot_qt_thue = 0
+
+    for idx, item in enumerate(ktcb_list):
+        row = t_ktcb.rows[idx + header_rows_count]
+        name = str(item.get('name', ''))
+        dt = float(item.get('dt', 0))
+        qt = float(item.get('qt', 0))
+        tt = float(item.get('tt', qt))
+        is_dp = 'dự phòng' in name.lower()
+
+        dt_thue = 0 if is_dp else float(item.get('dt_thue', round(dt * 0.08)))
+        qt_thue = 0 if is_dp else float(item.get('qt_thue', round(qt * 0.08))) if qt > 0 else 0
+        tt_thue = qt_thue
+
+        tot_dt += dt
+        tot_dt_thue += dt_thue
+        tot_qt += qt
+        tot_qt_thue += qt_thue
+
+        s_dt = _fmt_money_dot(dt)
+        s_dt_thue = _fmt_money_dot(dt_thue) if dt_thue > 0 else '0'
+        s_qt = _fmt_money_dot(qt) if qt > 0 else '0'
+        s_qt_thue = _fmt_money_dot(qt_thue) if (qt > 0 and qt_thue > 0) else ('' if qt == 0 else '0')
+        s_tt = _fmt_money_dot(tt) if tt > 0 else '0'
+        s_tt_thue = _fmt_money_dot(tt_thue) if tt_thue > 0 else '0'
+        s_diff = '0'
+
+        vals = [name, s_dt, s_dt_thue, s_qt, s_qt_thue, s_tt, s_tt_thue, s_diff]
+        for c_idx, val in enumerate(vals):
+            cell = row.cells[c_idx]
+            cell.text = ""
+            p = cell.paragraphs[0]
+            p.text = ""
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_idx == 0 else WD_ALIGN_PARAGRAPH.RIGHT
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.first_line_indent = Pt(0)
+            r = p.add_run(val)
+            r.font.name = "Times New Roman"
+            r.font.size = Pt(10)
+
+    total_row = t_ktcb.rows[-1]
+    tot_vals = [
+        "Tổng cộng",
+        _fmt_money_dot(tot_dt),
+        _fmt_money_dot(tot_dt_thue),
+        _fmt_money_dot(tot_qt),
+        _fmt_money_dot(tot_qt_thue),
+        _fmt_money_dot(tot_qt),
+        _fmt_money_dot(tot_qt_thue),
+        "0"
+    ]
+    for c_idx, val in enumerate(tot_vals):
+        cell = total_row.cells[c_idx]
+        cell.text = ""
+        p = cell.paragraphs[0]
+        p.text = ""
+        p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_idx == 0 else WD_ALIGN_PARAGRAPH.RIGHT
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.line_spacing = 1.0
+        p.paragraph_format.first_line_indent = Pt(0)
+        r = p.add_run(val)
+        r.font.name = "Times New Roman"
+        r.font.size = Pt(10)
+        r.bold = True
+
+
 def add_aligned_cost_lines_docx(doc, items, left_pt=49.65, colon_pt=205.55, right_pt=382.75):
     """Fallback dùng render_cost_table_docx để tạo bảng 4 cột chuẩn đẹp"""
     return render_cost_table_docx(doc, items, font_size=Pt(13), left_indent_cm=0.8)
@@ -311,6 +410,12 @@ def _format_paragraphs_and_tables(doc, doc_type="qd"):
             p.paragraph_format.first_line_indent = Pt(0)
             continue
 
+        if doc_type == "bctt" and any(txt.startswith(sh) for sh in ["Tên công trình:", "Đơn vị quản lý:", "Phương thức chọn thầu", "Hợp đồng số:", "Đơn vị thực hiện:", "Nội dung cụ thể:"]):
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1.0
+            continue
+
         # Các đoạn nội dung thông thường (Căn cứ..., Công trình..., Bằng chữ..., Điều 1/2/3..., Kính gửi..., Trân trọng...)
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(0)
@@ -321,8 +426,9 @@ def _format_paragraphs_and_tables(doc, doc_type="qd"):
 
     # Định dạng các ô trong tất cả các bảng
     for table in doc.tables:
-        # Nếu là bảng chi phí 4 cột không viền, giữ nguyên căn lề trái đã thiết lập
-        if len(table.columns) == 4:
+        # Nếu là bảng chi phí 4 cột không viền (không phải Table 1 của BCTT), giữ nguyên căn lề trái đã thiết lập
+        is_bctt_t1 = (len(table.columns) == 4 and len(table.rows) >= 10 and "1/ Phần sửa chữa" in table.cell(0, 0).text)
+        if len(table.columns) == 4 and not is_bctt_t1:
             continue
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         for row in table.rows:
@@ -333,7 +439,7 @@ def _format_paragraphs_and_tables(doc, doc_type="qd"):
                     p.paragraph_format.line_spacing = 1.0
                     p.paragraph_format.first_line_indent = Pt(0)
 
-    # Riêng Báo cáo thẩm tra: bảng Table KTCB (có 5 cột)
+    # Riêng Báo cáo thẩm tra: bảng Table KTCB (có 5 cột nếu là mẫu cũ)
     if doc_type == "bctt":
         t_ktcb = next((t for t in doc.tables if len(t.columns) == 5), None)
         if t_ktcb is not None:
@@ -942,95 +1048,184 @@ def export_bao_cao_tham_tra_word(main_row, ct_data, thqt_data=None):
             p4.text = f"Căn cứ hồ sơ quyết toán công trình: {ten}."
             for r in p4.runs:
                 r.font.name = "Times New Roman"
-                r.font.size = Pt(13)
+                r.font.size = Pt(14)
 
         if len(doc.paragraphs) > 7:
             p7 = doc.paragraphs[7]
             p7.text = f"Tên công trình: {ten}."
             for r in p7.runs:
                 r.font.name = "Times New Roman"
-                r.font.size = Pt(13)
+                r.font.size = Pt(14)
 
         if len(doc.paragraphs) > 9 and ghi_chu:
             doc.paragraphs[9].text = f"Phương thức chọn thầu thực hiện: {ghi_chu}"
             for r in doc.paragraphs[9].runs:
                 r.font.name = "Times New Roman"
-                r.font.size = Pt(13)
+                r.font.size = Pt(14)
 
-        if len(doc.paragraphs) > 11 and so_hd:
+        so_hd_xl = str(main_row.get('Số Hợp đồng xây lắp', '')).strip() if main_row is not None and pd.notna(main_row.get('Số Hợp đồng xây lắp')) else ''
+        if len(doc.paragraphs) > 11 and so_hd_xl:
+            doc.paragraphs[11].text = f"{so_hd_xl}."
+            for r in doc.paragraphs[11].runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+        elif len(doc.paragraphs) > 11 and so_hd:
             doc.paragraphs[11].text = f"{so_hd}."
             for r in doc.paragraphs[11].runs:
                 r.font.name = "Times New Roman"
-                r.font.size = Pt(13)
+                r.font.size = Pt(14)
+
+        so_hd_tk = str(main_row.get('Số Hợp đồng thiết kế', '')).strip() if main_row is not None and pd.notna(main_row.get('Số Hợp đồng thiết kế')) else ''
+        if len(doc.paragraphs) > 12 and so_hd_tk:
+            doc.paragraphs[12].text = f"{so_hd_tk}."
+            for r in doc.paragraphs[12].runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+        so_hd_gs = str(main_row.get('Số Hợp đồng giám sát', '')).strip() if main_row is not None and pd.notna(main_row.get('Số Hợp đồng giám sát')) else ''
+        if len(doc.paragraphs) > 13 and so_hd_gs:
+            doc.paragraphs[13].text = f"{so_hd_gs}."
+            for r in doc.paragraphs[13].runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
 
         if len(doc.paragraphs) > 15 and don_vi_th:
             doc.paragraphs[15].text = f"{don_vi_th}."
             for r in doc.paragraphs[15].runs:
                 r.font.name = "Times New Roman"
-                r.font.size = Pt(13)
+                r.font.size = Pt(14)
 
-        # 1/ Phần sửa chữa
-        idx_sc = -1
-        for i, p in enumerate(doc.paragraphs):
-            if "1/ Phần sửa chữa:" in p.text or "1/  Phần sửa chữa" in p.text:
-                idx_sc = i
-                break
-        if idx_sc != -1 and idx_sc + 1 < len(doc.paragraphs):
-            target_p = doc.paragraphs[idx_sc + 1]
-            items_sc = [
-                ("- Số dự toán", _fmt_money_dot(sc_dt), False, "đồng."),
-                ("- Số quyết toán", _fmt_money_dot(sc_qt), False, "đồng."),
-                ("- Số thẩm tra", _fmt_money_dot(sc_qt), False, "đồng."),
-                ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
-            ]
-            render_cost_table_docx(doc, items_sc, font_size=Pt(13), left_indent_cm=0.8, target_p=target_p)
-            to_remove = []
-            for p in doc.paragraphs[idx_sc + 1:]:
-                if "2/" in p.text and "vật tư" in p.text.lower():
+        # 1 & 2: Phần sửa chữa và Phần vật tư, thiết bị
+        t_sc_tb = None
+        for t in doc.tables:
+            if len(t.columns) == 4 and len(t.rows) >= 11:
+                if "1/ Phần sửa chữa" in t.rows[0].cells[0].text or "1/  Phần sửa chữa" in t.rows[0].cells[0].text:
+                    t_sc_tb = t
                     break
-                to_remove.append(p)
-            for p in to_remove:
-                p._element.getparent().remove(p._element)
 
-        # 2/ Phần vật tư, thiết bị
-        idx_tb = -1
-        for i, p in enumerate(doc.paragraphs):
-            if "2/" in p.text and "vật tư" in p.text.lower():
-                idx_tb = i
-                break
-        if idx_tb != -1 and idx_tb + 1 < len(doc.paragraphs):
-            target_p = doc.paragraphs[idx_tb + 1]
-            items_tb = [
-                ("- Số dự toán", _fmt_money_dot(tb_dt), False, "đồng."),
-                ("- Số quyết toán", _fmt_money_dot(tb_qt), False, "đồng."),
-                ("- Số thẩm tra", _fmt_money_dot(tb_qt), False, "đồng."),
-                ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
-            ]
-            render_cost_table_docx(doc, items_tb, font_size=Pt(13), left_indent_cm=0.8, target_p=target_p)
-            to_remove = []
-            for p in doc.paragraphs[idx_tb + 1:]:
-                if "3/ Phần kiến thiết" in p.text or "3/" in p.text:
+        if t_sc_tb is not None:
+            def _set_t1_cell(cell, txt, align=WD_ALIGN_PARAGRAPH.RIGHT):
+                cell.text = ""
+                p = cell.paragraphs[0]
+                p.text = ""
+                p.alignment = align
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(0)
+                p.paragraph_format.line_spacing = 1.0
+                p.paragraph_format.first_line_indent = Pt(0)
+                r = p.add_run(str(txt))
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(12)
+
+            # Phần 1: Sửa chữa
+            sc_dt_vat = round(sc_dt * 0.08) if sc_dt > 0 else 0
+            sc_dt_tong = sc_dt + sc_dt_vat
+            sc_qt_vat = round(sc_qt * 0.08) if sc_qt > 0 else 0
+            sc_qt_tong = sc_qt + sc_qt_vat
+
+            _set_t1_cell(t_sc_tb.cell(1, 1), _fmt_money_dot(sc_dt))
+            _set_t1_cell(t_sc_tb.cell(1, 2), _fmt_money_dot(sc_dt_vat))
+            _set_t1_cell(t_sc_tb.cell(1, 3), _fmt_money_dot(sc_dt_tong))
+
+            _set_t1_cell(t_sc_tb.cell(2, 1), _fmt_money_dot(sc_qt))
+            _set_t1_cell(t_sc_tb.cell(2, 2), _fmt_money_dot(sc_qt_vat))
+            _set_t1_cell(t_sc_tb.cell(2, 3), _fmt_money_dot(sc_qt_tong))
+
+            _set_t1_cell(t_sc_tb.cell(3, 1), _fmt_money_dot(sc_qt))
+            _set_t1_cell(t_sc_tb.cell(3, 2), _fmt_money_dot(sc_qt_vat))
+            _set_t1_cell(t_sc_tb.cell(3, 3), _fmt_money_dot(sc_qt_tong))
+
+            _set_t1_cell(t_sc_tb.cell(4, 1), "0")
+            _set_t1_cell(t_sc_tb.cell(4, 2), "0")
+            _set_t1_cell(t_sc_tb.cell(4, 3), "0")
+
+            # Phần 2: Vật tư, thiết bị
+            tb_dt_vat = round(tb_dt * 0.08) if tb_dt > 0 else 0
+            tb_dt_tong = tb_dt + tb_dt_vat
+            tb_qt_vat = round(tb_qt * 0.08) if tb_qt > 0 else 0
+            tb_qt_tong = tb_qt + tb_qt_vat
+
+            _set_t1_cell(t_sc_tb.cell(7, 1), _fmt_money_dot(tb_dt))
+            _set_t1_cell(t_sc_tb.cell(7, 2), _fmt_money_dot(tb_dt_vat))
+            _set_t1_cell(t_sc_tb.cell(7, 3), _fmt_money_dot(tb_dt_tong))
+
+            _set_t1_cell(t_sc_tb.cell(8, 1), _fmt_money_dot(tb_qt))
+            _set_t1_cell(t_sc_tb.cell(8, 2), _fmt_money_dot(tb_qt_vat))
+            _set_t1_cell(t_sc_tb.cell(8, 3), _fmt_money_dot(tb_qt_tong))
+
+            _set_t1_cell(t_sc_tb.cell(9, 1), _fmt_money_dot(tb_qt))
+            _set_t1_cell(t_sc_tb.cell(9, 2), _fmt_money_dot(tb_qt_vat))
+            _set_t1_cell(t_sc_tb.cell(9, 3), _fmt_money_dot(tb_qt_tong))
+
+            _set_t1_cell(t_sc_tb.cell(10, 1), "0")
+            _set_t1_cell(t_sc_tb.cell(10, 2), "0")
+            _set_t1_cell(t_sc_tb.cell(10, 3), "0")
+        else:
+            # Fallback nếu mẫu cũ dùng paragraph
+            idx_sc = -1
+            for i, p in enumerate(doc.paragraphs):
+                if "1/ Phần sửa chữa:" in p.text or "1/  Phần sửa chữa" in p.text:
+                    idx_sc = i
                     break
-                to_remove.append(p)
-            for p in to_remove:
-                p._element.getparent().remove(p._element)
-
-        # 3/ Phần kiến thiết cơ bản khác (Bảng 5 cột)
-        t_ktcb = next((t for t in doc.tables if len(t.columns) == 5), None)
-        if t_ktcb is not None:
-            if not ktcb_list:
-                ktcb_list = [
-                    {"name": "Chi phí Lập khảo sát, Lập PAKT-DT", "dt": 46296296, "qt": 46296296, "tt": 46296296, "diff": 0},
-                    {"name": "2- Chi phí giám sát công trình", "dt": 38888889, "qt": 38888889, "tt": 38888889, "diff": 0},
-                    {"name": "Chi phí bảo hiểm công trình", "dt": 898673, "qt": 0, "tt": 0, "diff": 0},
-                    {"name": "Chi phí thẩm tra thiết kế", "dt": 2107797, "qt": 0, "tt": 0, "diff": 0},
-                    {"name": "Chi phí thẩm tra dự toán", "dt": 2042439, "qt": 0, "tt": 0, "diff": 0},
-                    {"name": "Chi phí thẩm tra phê duyệt quyết toán", "dt": 5619375, "qt": 0, "tt": 0, "diff": 0},
-                    {"name": "Chi phí dự phòng", "dt": 49292765, "qt": 0, "tt": 0, "diff": 0},
+            if idx_sc != -1 and idx_sc + 1 < len(doc.paragraphs):
+                target_p = doc.paragraphs[idx_sc + 1]
+                items_sc = [
+                    ("- Số dự toán", _fmt_money_dot(sc_dt), False, "đồng."),
+                    ("- Số quyết toán", _fmt_money_dot(sc_qt), False, "đồng."),
+                    ("- Số thẩm tra", _fmt_money_dot(sc_qt), False, "đồng."),
+                    ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
                 ]
-                tot_ktcb_dt = sum(x["dt"] for x in ktcb_list)
-                tot_ktcb_qt = sum(x["qt"] for x in ktcb_list)
-            update_ktcb_table_docx(t_ktcb, ktcb_list, tot_ktcb_dt, tot_ktcb_qt)
+                render_cost_table_docx(doc, items_sc, font_size=Pt(13), left_indent_cm=0.8, target_p=target_p)
+                to_remove = []
+                for p in doc.paragraphs[idx_sc + 1:]:
+                    if "2/" in p.text and "vật tư" in p.text.lower():
+                        break
+                    to_remove.append(p)
+                for p in to_remove:
+                    p._element.getparent().remove(p._element)
+
+            idx_tb = -1
+            for i, p in enumerate(doc.paragraphs):
+                if "2/" in p.text and "vật tư" in p.text.lower():
+                    idx_tb = i
+                    break
+            if idx_tb != -1 and idx_tb + 1 < len(doc.paragraphs):
+                target_p = doc.paragraphs[idx_tb + 1]
+                items_tb = [
+                    ("- Số dự toán", _fmt_money_dot(tb_dt), False, "đồng."),
+                    ("- Số quyết toán", _fmt_money_dot(tb_qt), False, "đồng."),
+                    ("- Số thẩm tra", _fmt_money_dot(tb_qt), False, "đồng."),
+                    ("- Số chênh lệch TTr/QT", "0", False, "đồng."),
+                ]
+                render_cost_table_docx(doc, items_tb, font_size=Pt(13), left_indent_cm=0.8, target_p=target_p)
+                to_remove = []
+                for p in doc.paragraphs[idx_tb + 1:]:
+                    if "3/ Phần kiến thiết" in p.text or "3/" in p.text:
+                        break
+                    to_remove.append(p)
+                for p in to_remove:
+                    p._element.getparent().remove(p._element)
+
+        # 3/ Phần kiến thiết cơ bản khác
+        t_ktcb_8 = next((t for t in doc.tables if len(t.columns) == 8), None)
+        t_ktcb_5 = next((t for t in doc.tables if len(t.columns) == 5), None)
+        if not ktcb_list:
+            ktcb_list = [
+                {"name": "Chi phí Lập khảo sát, Lập PAKT-DT", "dt": 46296296, "qt": 46296296, "tt": 46296296, "diff": 0},
+                {"name": "2- Chi phí giám sát công trình", "dt": 38888889, "qt": 38888889, "tt": 38888889, "diff": 0},
+                {"name": "Chi phí bảo hiểm công trình", "dt": 898673, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí thẩm tra thiết kế", "dt": 2107797, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí thẩm tra dự toán", "dt": 2042439, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí thẩm tra phê duyệt quyết toán", "dt": 5619375, "qt": 0, "tt": 0, "diff": 0},
+                {"name": "Chi phí dự phòng", "dt": 49292765, "qt": 0, "tt": 0, "diff": 0},
+            ]
+            tot_ktcb_dt = sum(x["dt"] for x in ktcb_list)
+            tot_ktcb_qt = sum(x["qt"] for x in ktcb_list)
+
+        if t_ktcb_8 is not None:
+            update_ktcb_table_8cols(t_ktcb_8, ktcb_list)
+        elif t_ktcb_5 is not None:
+            update_ktcb_table_docx(t_ktcb_5, ktcb_list, tot_ktcb_dt, tot_ktcb_qt)
 
         # II/ Kết luận
         idx_kl = -1
