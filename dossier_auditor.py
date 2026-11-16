@@ -234,34 +234,34 @@ def classify_file_into_qd202(filename, text="", is_scanned=False):
         return 4, "HOA_DON_GTGT", "Hóa đơn GTGT (nếu thuê ngoài thi công / mua sắm)"
     if any(k in fn_lower for k in ["thu hoi", "thu hồi", "vtth"]):
         return 4, "BB_THU_HOI_VT", "Biên bản đánh giá / Bảng kê VTTB thu hồi nhập kho"
-    if any(k in fn_lower for k in ["quyet toan", "quyết toán", "thqt", "qtda", "bo quyet toan", "ho so quyet toan", "de nghi thanh toan"]):
+    if any(k in fn_lower for k in ["bang th qt", "th qt", "thqt", "tong hop scl", "quyet toan", "quyết toán", "qtda", "bo quyet toan", "ho so quyet toan", "de nghi thanh toan"]):
         return 4, "QT_A_B", "Bảng quyết toán A-B / Bảng THQT KP SCL"
+    if any(k in fn_lower for k in ["chiet tinh dv6", "chiết tính dv6", "82 vt", "qt vttb", "vttb a cấp"]):
+        return 4, "QT_VTTB_A_CAP", "Bảng quyết toán vật tư, thiết bị A cấp cho ĐVTC"
     if any(k in fn_lower for k in ["tham tra", "thẩm tra"]):
         return 4, "BC_THAM_TRA", "Báo cáo kết quả thẩm tra quyết toán SCL"
     if any(k in fn_lower for k in ["to trinh", "tờ trình", "ttr"]):
         return 4, "TO_TRINH_DUYET_QT", "Tờ trình duyệt quyết toán danh mục SCL"
 
     # Nhóm 1: Khảo sát, Kế hoạch vốn, Phê duyệt PAKT - Dự toán
-    if any(k in fn_lower for k in ["khao sat", "khảo sát", "hu hong", "hư hỏng", "cbm", "rcm"]):
+    if any(k in fn_lower for k in ["khao sat", "khảo sát", "hu hong", "hư hỏng", "cbm", "rcm", "kstthh", "ks tthh", "khiem khuyet", "khiếm khuyết"]):
         return 1, "BB_KHAO_SAT", "Biên bản khảo sát hư hỏng / đánh giá hiện trạng"
     if any(k in fn_lower for k in ["chap thuan", "chấp thuận", "ke hoach von", "kế hoạch vốn", "giao ke hoach", "danh muc scl", "2132"]):
         return 1, "QD_KH_VON", "Quyết định giao KH vốn / Văn bản chấp thuận danh mục SCL"
-    if any(k in fn_lower for k in ["pakt", "dự toán", "du toan"]):
+    if any(k in fn_lower for k in ["pa kt dt", "pa kt", "pa_kt", "pakt", "dự toán", "du toan"]):
         return 1, "QD_PAKT_DT", "Quyết định phê duyệt PAKT - Dự toán"
 
-    # Nhóm 3: Nghiệm thu kỹ thuật & Đưa vào sử dụng
-    if any(k in fn_lower for k in ["dua vao su dung", "đưa vào sử dụng"]):
+    # Nhóm 3: Nghiệm thu kỹ thuật & Đưa vào sử dụng & Bảng XNKL
+    if any(k in fn_lower for k in ["chiet tinh tung cong viec", "xnkl", "xac nhan khoi luong", "xác nhận khối lượng", "ntkl"]):
+        return 3, "BANG_XNKL", "Bảng xác nhận khối lượng hoàn thành (Bảng XNKL)"
+    if any(k in fn_lower for k in ["dua vao su dung", "đưa vào sử dụng", "bbnt va", "bbnt", "hoan thanh", "hoàn thành"]):
         return 3, "BBNT_HOAN_THANH", "Biên bản nghiệm thu đưa vào sử dụng / hoàn thành"
     if any(k in fn_lower for k in ["nt ky thuat", "nghiem thu ky thuat", "nghiệm thu kỹ thuật", "suat tieu hao", "truoc khi su dung", "ky thuat"]):
         return 3, "BBNT_KY_THUAT", "Biên bản nghiệm thu kỹ thuật / thử nghiệm"
-    if any(k in fn_lower for k in ["xnkl", "xac nhan khoi luong", "xác nhận khối lượng", "ntkl"]):
-        return 3, "BANG_XNKL", "Bảng xác nhận khối lượng hoàn thành (Bảng XNKL)"
-    if any(k in fn_lower for k in ["nghiem thu", "nghiệm thu"]):
-        return 3, "BBNT_HOAN_THANH", "Biên bản nghiệm thu đưa vào sử dụng / hoàn thành"
 
     # Nhóm 2: Hợp đồng, Thỏa thuận, Phiếu xuất kho
-    if any(k in fn_lower for k in ["thoa thuan", "thỏa thuận", "ttgv"]):
-        return 2, "KHLCNT_TTGV", "Kế hoạch LCNT / Thỏa thuận giao việc (nếu tự làm)"
+    if any(k in fn_lower for k in ["ttgv", "thoa thuan", "thỏa thuận", "phu_luc_ttgv", "phu luc ttgv", "giao việc", "giao viec"]):
+        return 2, "KHLCNT_TTGV", "Thỏa thuận giao việc (TTGV) / Kế hoạch LCNT"
     if any(k in fn_lower for k in ["hop dong", "hợp đồng", "hd-", "hđ-", "hđxl", "hdxl"]):
         if any(k in fn_lower for k in ["mua sam", "mua sắm", "vật tư", "vat tu", "shin", "xpad"]):
             return 2, "HOP_DONG_MS", "Hợp đồng mua sắm VTTB / Thư chấp thuận vật tư"
@@ -338,10 +338,13 @@ def scan_project_dossier_qd202(project_folder, ma_ct="", ten_ct="", is_tu_lam=Fa
         is_scanned = False
 
         sheet_names = []
-        if ext in [".xlsx", ".xls"]:
+        if ext in [".xlsx", ".xls", ".xlsb"]:
             # Đọc sơ bộ danh sách sheet
             try:
-                xl = pd.ExcelFile(fpath)
+                if ext == ".xlsb":
+                    xl = pd.ExcelFile(fpath, engine="pyxlsb")
+                else:
+                    xl = pd.ExcelFile(fpath)
                 sheet_names = xl.sheet_names
                 text = " ".join(sheet_names)
             except:
@@ -415,13 +418,36 @@ def scan_project_dossier_qd202(project_folder, ma_ct="", ten_ct="", is_tu_lam=Fa
     missing_docs = []
     present_keys = set([f["doc_key"] for f in all_files_info if f.get("doc_key") != "CHUA_PHAN_LOAI"])
 
-    # Nếu có hợp đồng liên danh / mua sắm & thi công trọn gói
+    # Nếu có hợp đồng liên danh / mua sắm & thi công trọn gói hoặc TTGV
     for f in all_files_info:
         fn_l = f.get("name", "").lower()
         if any(k in fn_l for k in ["hd-", "hđ-", "hợp đồng", "hop dong"]):
             if any(k in fn_l for k in ["ld", "liên danh", "shin-xpad", "thi công", "xây lắp"]):
                 present_keys.add("HOP_DONG_XL")
                 present_keys.add("HOP_DONG_MS")
+        if any(k in fn_l for k in ["ttgv", "thoa thuan", "thỏa thuận"]):
+            present_keys.add("KHLCNT_TTGV")
+            present_keys.add("HOP_DONG_XL")
+        if "bbnt" in fn_l and any(k in fn_l for k in ["th qt", "thqt", "quyết toán", "quyet toan"]):
+            present_keys.add("BBNT_HOAN_THANH")
+            present_keys.add("QT_A_B")
+            groups_data[4].append({
+                "name": f["name"],
+                "path": f["path"],
+                "rel_path": f["rel_path"],
+                "ext": f["ext"],
+                "pages": 1,
+                "is_scanned": f.get("is_scanned", False),
+                "group_id": 4,
+                "doc_key": "QT_A_B",
+                "doc_name": "Bảng quyết toán A-B / Bảng THQT KP SCL",
+                "so_qd": f["so_qd"],
+                "ngay": f["ngay"],
+                "ngay_str": f["ngay_str"]
+            })
+        if any(k in fn_l for k in ["chiet tinh", "chiết tính"]):
+            present_keys.add("QT_VTTB_A_CAP")
+            present_keys.add("BANG_XNKL")
 
     # Bổ sung các chứng từ được nhúng bên trong các sheet của file Excel tổng hợp
     for f in all_files_info:

@@ -111,7 +111,7 @@ def find_project_folder(ma_ct, ten_ct=""):
     max_len = 0
     for d_name, full_path in candidates:
         d_lower = _clean_str(d_name)
-        if d_lower in ten_clean or ten_clean in d_lower:
+        if ten_clean and (d_lower in ten_clean or ten_clean in d_lower):
             common_len = len(d_lower)
             if common_len > max_len:
                 max_len = common_len
@@ -132,6 +132,8 @@ def find_project_folder(ma_ct, ten_ct=""):
         keywords = ["cummins", "g1_g2", "g1", "g2", "g1-2"]
     elif "an hội" in ten_clean or "côn đảo" in ten_clean or "vtad2607001" in ma_clean:
         keywords = ["an hội", "côn đảo", "nhà đặt"]
+    elif "live" in ten_clean or "line" in ten_clean or "hotline" in ten_clean or "vtad2610002" in ma_clean:
+        keywords = ["live-line", "live line", "liveline", "hotline"]
 
     for d_name, full_path in candidates:
         d_lower = d_name.lower()
