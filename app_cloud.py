@@ -645,6 +645,31 @@ elif "KIỂM TRA HỒ SƠ" in page:
                 btn_audit = st.button("🚀 Quét & Rà soát Hồ sơ QĐ 202", type="primary", use_container_width=True, key=f"btn_audit_{ma_ct}")
                 st.caption("💡 Tự động phân loại 4 nhóm, rà soát OCR, kiểm tra timeline và đối chiếu vật tư.")
 
+        # Hộp công cụ tải thêm tài liệu trực tiếp từ trình duyệt web (dành cho cả khi mở trên máy khác / Streamlit Cloud)
+        with st.expander("📤 Tải thêm tài liệu vào công trình này (Dành cho máy khác / Streamlit Cloud)", expanded=False):
+            up_dossier_files = st.file_uploader(
+                "Chọn hoặc kéo thả các file tài liệu (.pdf, .xlsx, .xls) để bổ sung vào hồ sơ:",
+                type=["pdf", "xlsx", "xls"],
+                accept_multiple_files=True,
+                key=f"up_dossier_multi_{ma_ct}"
+            )
+            if up_dossier_files:
+                if st.button("💾 Lưu các file vào hồ sơ công trình", key=f"btn_save_up_dossier_{ma_ct}", type="primary"):
+                    target_folder = p_folder
+                    if not target_folder:
+                        ho_so_base = os.path.join(BASE_DIR, "Ho_so_cong_trinh")
+                        target_folder = os.path.join(ho_so_base, ten if ten else ma_ct)
+                        os.makedirs(target_folder, exist_ok=True)
+                    count_saved = 0
+                    for uf in up_dossier_files:
+                        dest_f = os.path.join(target_folder, uf.name)
+                        with open(dest_f, "wb") as f_out:
+                            f_out.write(uf.getbuffer())
+                        count_saved += 1
+                    st.success(f"✅ Đã tải lên và lưu thành công {count_saved} tệp vào hồ sơ công trình!")
+                    st.session_state.pop(f"dossier_qd202_{ma_ct}", None)
+                    st.rerun()
+
         # Tự động quét hoặc nạp dữ liệu đã quét từ session state
         need_rescan = (f"dossier_qd202_{ma_ct}" not in st.session_state) or btn_audit
         if need_rescan:
