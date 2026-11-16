@@ -670,6 +670,13 @@ elif "KIỂM TRA HỒ SƠ" in page:
                     st.session_state.pop(f"dossier_qd202_{ma_ct}", None)
                     st.rerun()
 
+        # Nút bấm quét lại: xóa cache để ép buộc quét mới hoàn toàn
+        if btn_audit:
+            st.session_state.pop(f"dossier_qd202_{ma_ct}", None)
+            st.session_state.pop(f"recon_scl_{ma_ct}", None)
+            st.session_state.pop(f"audit_legal_{ma_ct}", None)
+            st.session_state.pop(f"excel_bytes_{ma_ct}", None)
+
         # Tự động quét hoặc nạp dữ liệu đã quét từ session state
         need_rescan = (f"dossier_qd202_{ma_ct}" not in st.session_state) or btn_audit
         if need_rescan:

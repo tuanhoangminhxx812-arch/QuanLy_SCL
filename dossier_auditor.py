@@ -213,36 +213,86 @@ def extract_metadata_from_text(text, filename=""):
     }
 
 
-def classify_file_into_qd202(filename, text, is_scanned=False):
+def classify_file_into_qd202(filename, text="", is_scanned=False):
     """
     Phân loại một file vào 1 trong 4 nhóm hồ sơ QĐ 202 và chỉ ra doc_type khớp nhất.
+    Ưu tiên 1: Tên file (Filename) có độ chính xác cao nhất.
+    Ưu tiên 2: Nội dung văn bản (Text) với cụm từ đặc trưng rõ ràng.
     """
     fn_lower = filename.lower()
     txt_lower = text.lower() if text else ""
-    combined = f"{fn_lower} {txt_lower[:3000]}"
 
-    best_group = None
-    best_doc_key = None
-    best_doc_name = None
+    # ── BƯỚC 1: SO KHỚP ƯU TIÊN THEO TÊN FILE ──
+    # Nhóm 3: Khởi công & Giám sát (rất đặc trưng)
+    if any(k in fn_lower for k in ["khoi cong", "khởi công"]):
+        return 3, "TB_KHOI_CONG", "Thông báo khởi công công trình"
+    if any(k in fn_lower for k in ["giam sat", "giám sát"]):
+        return 3, "QD_GIAM_SAT", "Quyết định / Biên bản cử giám sát thi công"
 
-    for g_id, g_info in QD202_GROUPS.items():
-        for doc_key, doc_name, keywords in g_info["required_docs"]:
-            for kw in keywords:
-                if kw in fn_lower or (not is_scanned and kw in txt_lower[:2500]):
-                    best_group = g_id
-                    best_doc_key = doc_key
-                    best_doc_name = doc_name
-                    return best_group, best_doc_key, best_doc_name
+    # Nhóm 4: Hóa đơn & Thu hồi & Quyết toán
+    if any(k in fn_lower for k in ["hoa don", "hóa đơn", "invoice", "1c26", "c26", "vat", "3500822067"]):
+        return 4, "HOA_DON_GTGT", "Hóa đơn GTGT (nếu thuê ngoài thi công / mua sắm)"
+    if any(k in fn_lower for k in ["thu hoi", "thu hồi", "vtth"]):
+        return 4, "BB_THU_HOI_VT", "Biên bản đánh giá / Bảng kê VTTB thu hồi nhập kho"
+    if any(k in fn_lower for k in ["quyet toan", "quyết toán", "thqt", "qtda", "bo quyet toan", "ho so quyet toan", "de nghi thanh toan"]):
+        return 4, "QT_A_B", "Bảng quyết toán A-B / Bảng THQT KP SCL"
+    if any(k in fn_lower for k in ["tham tra", "thẩm tra"]):
+        return 4, "BC_THAM_TRA", "Báo cáo kết quả thẩm tra quyết toán SCL"
+    if any(k in fn_lower for k in ["to trinh", "tờ trình", "ttr"]):
+        return 4, "TO_TRINH_DUYET_QT", "Tờ trình duyệt quyết toán danh mục SCL"
 
-    # Fallback dựa trên các từ khóa chung
-    if any(k in combined for k in ["kế hoạch", "ke hoach", "phê duyệt pakt", "dự toán", "du toan", "khảo sát"]):
-        return 1, "CHUNG_NHOM_1", "Hồ sơ Pháp lý & Dự toán chung"
-    elif any(k in combined for k in ["hợp đồng", "hop dong", "thỏa thuận", "giao việc", "mua sắm", "xuất kho", "vật tư"]):
-        return 2, "CHUNG_NHOM_2", "Hồ sơ Thực hiện & Hợp đồng chung"
-    elif any(k in combined for k in ["nghiệm thu", "nghiem thu", "khởi công", "khoi cong", "giám sát", "xnkl"]):
-        return 3, "CHUNG_NHOM_3", "Hồ sơ Kỹ thuật & Nghiệm thu chung"
-    elif any(k in combined for k in ["quyết toán", "quyet toan", "thu hồi", "thu hoi", "thẩm tra", "tham tra"]):
-        return 4, "CHUNG_NHOM_4", "Hồ sơ Quyết toán & Thu hồi chung"
+    # Nhóm 1: Khảo sát, Kế hoạch vốn, Phê duyệt PAKT - Dự toán
+    if any(k in fn_lower for k in ["khao sat", "khảo sát", "hu hong", "hư hỏng", "cbm", "rcm"]):
+        return 1, "BB_KHAO_SAT", "Biên bản khảo sát hư hỏng / đánh giá hiện trạng"
+    if any(k in fn_lower for k in ["chap thuan", "chấp thuận", "ke hoach von", "kế hoạch vốn", "giao ke hoach", "danh muc scl", "2132"]):
+        return 1, "QD_KH_VON", "Quyết định giao KH vốn / Văn bản chấp thuận danh mục SCL"
+    if any(k in fn_lower for k in ["pakt", "dự toán", "du toan"]):
+        return 1, "QD_PAKT_DT", "Quyết định phê duyệt PAKT - Dự toán"
+
+    # Nhóm 3: Nghiệm thu kỹ thuật & Đưa vào sử dụng
+    if any(k in fn_lower for k in ["dua vao su dung", "đưa vào sử dụng"]):
+        return 3, "BBNT_HOAN_THANH", "Biên bản nghiệm thu đưa vào sử dụng / hoàn thành"
+    if any(k in fn_lower for k in ["nt ky thuat", "nghiem thu ky thuat", "nghiệm thu kỹ thuật", "suat tieu hao", "truoc khi su dung", "ky thuat"]):
+        return 3, "BBNT_KY_THUAT", "Biên bản nghiệm thu kỹ thuật / thử nghiệm"
+    if any(k in fn_lower for k in ["xnkl", "xac nhan khoi luong", "xác nhận khối lượng", "ntkl"]):
+        return 3, "BANG_XNKL", "Bảng xác nhận khối lượng hoàn thành (Bảng XNKL)"
+    if any(k in fn_lower for k in ["nghiem thu", "nghiệm thu"]):
+        return 3, "BBNT_HOAN_THANH", "Biên bản nghiệm thu đưa vào sử dụng / hoàn thành"
+
+    # Nhóm 2: Hợp đồng, Thỏa thuận, Phiếu xuất kho
+    if any(k in fn_lower for k in ["thoa thuan", "thỏa thuận", "ttgv"]):
+        return 2, "KHLCNT_TTGV", "Kế hoạch LCNT / Thỏa thuận giao việc (nếu tự làm)"
+    if any(k in fn_lower for k in ["hop dong", "hợp đồng", "hd-", "hđ-", "hđxl", "hdxl"]):
+        if any(k in fn_lower for k in ["mua sam", "mua sắm", "vật tư", "vat tu", "shin", "xpad"]):
+            return 2, "HOP_DONG_MS", "Hợp đồng mua sắm VTTB / Thư chấp thuận vật tư"
+        return 2, "HOP_DONG_XL", "Hợp đồng xây lắp / thi công (hoặc TTGV nếu tự làm)"
+    if any(k in fn_lower for k in ["giao nhan", "giao nhận", "xuat kho", "xuất kho", "bbgn", "phieu xuat"]):
+        return 2, "PHIEU_XUAT_KHO", "Biên bản giao nhận / Phiếu xuất kho VTTB A cấp"
+
+    # ── BƯỚC 2: NẾU TÊN FILE CHƯA KHỚP, XÉT NỘI DUNG VĂN BẢN (TEXT) ──
+    if txt_lower and not is_scanned:
+        if any(k in txt_lower for k in ["hóa đơn giá trị gia tăng", "hoa don gia tri gia tang", "mẫu số 01gtkt", "mẫu số 1c26"]):
+            return 4, "HOA_DON_GTGT", "Hóa đơn GTGT (nếu thuê ngoài thi công / mua sắm)"
+        if any(k in txt_lower for k in ["thông báo khởi công", "thong bao khoi cong"]):
+            return 3, "TB_KHOI_CONG", "Thông báo khởi công công trình"
+        if any(k in txt_lower for k in ["giao nhiệm vụ giám sát", "cử giám sát thi công", "giám sát thi công xây dựng"]):
+            return 3, "QD_GIAM_SAT", "Quyết định / Biên bản cử giám sát thi công"
+        if any(k in txt_lower for k in ["đưa vào sử dụng", "nghiệm thu hoàn thành hạng mục"]):
+            return 3, "BBNT_HOAN_THANH", "Biên bản nghiệm thu đưa vào sử dụng / hoàn thành"
+        if any(k in txt_lower for k in ["nghiệm thu kỹ thuật", "suất tiêu hao nhiên liệu", "vttb trước khi sử dụng"]):
+            return 3, "BBNT_KY_THUAT", "Biên bản nghiệm thu kỹ thuật / thử nghiệm"
+        if any(k in txt_lower for k in ["biên bản giao nhận hàng hóa", "phiếu xuất kho"]):
+            return 2, "PHIEU_XUAT_KHO", "Biên bản giao nhận / Phiếu xuất kho VTTB A cấp"
+        if any(k in txt_lower for k in ["đánh giá vật tư thu hồi", "bàn giao vttb thu hồi"]):
+            return 4, "BB_THU_HOI_VT", "Biên bản đánh giá / Bảng kê VTTB thu hồi nhập kho"
+        if any(k in txt_lower for k in ["bảng tổng hợp quyết toán", "quyết toán công trình hoàn thành"]):
+            return 4, "QT_A_B", "Bảng quyết toán A-B / Bảng THQT KP SCL"
+        if any(k in txt_lower for k in ["phê duyệt phương án kỹ thuật", "phê duyệt pakt", "phê duyệt dự toán"]):
+            return 1, "QD_PAKT_DT", "Quyết định phê duyệt PAKT - Dự toán"
+        if any(k in txt_lower for k in ["chấp thuận danh mục", "giao kế hoạch vốn"]):
+            return 1, "QD_KH_VON", "Quyết định giao KH vốn / Văn bản chấp thuận danh mục SCL"
+        if any(k in txt_lower for k in ["hợp đồng thi công", "hợp đồng kinh tế", "hợp đồng số"]):
+            return 2, "HOP_DONG_XL", "Hợp đồng xây lắp / thi công (hoặc TTGV nếu tự làm)"
 
     return None, "CHUA_PHAN_LOAI", "Tài liệu khác / Chưa phân loại"
 
@@ -287,15 +337,13 @@ def scan_project_dossier_qd202(project_folder, ma_ct="", ten_ct="", is_tu_lam=Fa
         pages = 1
         is_scanned = False
 
-        if ext == ".pdf":
-            text, pages, is_scanned = inspect_pdf_text_and_ocr(fpath)
-            if is_scanned:
-                scanned_pdf_count += 1
-        elif ext in [".xlsx", ".xls"]:
+        sheet_names = []
+        if ext in [".xlsx", ".xls"]:
             # Đọc sơ bộ danh sách sheet
             try:
                 xl = pd.ExcelFile(fpath)
-                text = " ".join(xl.sheet_names)
+                sheet_names = xl.sheet_names
+                text = " ".join(sheet_names)
             except:
                 text = ""
 
@@ -317,6 +365,7 @@ def scan_project_dossier_qd202(project_folder, ma_ct="", ten_ct="", is_tu_lam=Fa
             "so_qd": meta["so_qd"],
             "ngay": meta["ngay"],
             "ngay_str": meta["ngay_str"],
+            "sheet_names": sheet_names,
         }
         all_files_info.append(file_obj)
 
@@ -364,7 +413,88 @@ def scan_project_dossier_qd202(project_folder, ma_ct="", ten_ct="", is_tu_lam=Fa
 
     # Kiểm tra hồ sơ còn thiếu theo 4 nhóm
     missing_docs = []
-    present_keys = set([f["doc_key"] for f in all_files_info])
+    present_keys = set([f["doc_key"] for f in all_files_info if f.get("doc_key") != "CHUA_PHAN_LOAI"])
+
+    # Nếu có hợp đồng liên danh / mua sắm & thi công trọn gói
+    for f in all_files_info:
+        fn_l = f.get("name", "").lower()
+        if any(k in fn_l for k in ["hd-", "hđ-", "hợp đồng", "hop dong"]):
+            if any(k in fn_l for k in ["ld", "liên danh", "shin-xpad", "thi công", "xây lắp"]):
+                present_keys.add("HOP_DONG_XL")
+                present_keys.add("HOP_DONG_MS")
+
+    # Bổ sung các chứng từ được nhúng bên trong các sheet của file Excel tổng hợp
+    for f in all_files_info:
+        if f.get("sheet_names"):
+            s_lowers = [s.lower() for s in f["sheet_names"]]
+            fname = f["name"]
+            for s, s_orig in zip(s_lowers, f["sheet_names"]):
+                if any(k in s for k in ['bbnt kl', 'xnkl', 'xac nhan khoi luong', 'ntkl', 'bbxngt']):
+                    present_keys.add('BANG_XNKL')
+                    groups_data[3].append({
+                        "name": f"{fname} [Sheet: '{s_orig}']",
+                        "path": f["path"],
+                        "rel_path": f["rel_path"],
+                        "ext": f["ext"],
+                        "pages": 1,
+                        "is_scanned": False,
+                        "group_id": 3,
+                        "doc_key": "BANG_XNKL",
+                        "doc_name": "Bảng xác nhận khối lượng hoàn thành (Bảng XNKL)",
+                        "so_qd": f["so_qd"],
+                        "ngay": f["ngay"],
+                        "ngay_str": f["ngay_str"]
+                    })
+                if any(k in s for k in ['bbgn', 'giao nhan', 'xuất kho', 'giao nhận']):
+                    present_keys.add('PHIEU_XUAT_KHO')
+                    groups_data[2].append({
+                        "name": f"{fname} [Sheet: '{s_orig}']",
+                        "path": f["path"],
+                        "rel_path": f["rel_path"],
+                        "ext": f["ext"],
+                        "pages": 1,
+                        "is_scanned": False,
+                        "group_id": 2,
+                        "doc_key": "PHIEU_XUAT_KHO",
+                        "doc_name": "Biên bản giao nhận / Phiếu xuất kho VTTB A cấp",
+                        "so_qd": f["so_qd"],
+                        "ngay": f["ngay"],
+                        "ngay_str": f["ngay_str"]
+                    })
+                if any(k in s for k in ['vtth', 'thu hoi', 'thu hồi', 'bbdg']):
+                    present_keys.add('BB_THU_HOI_VT')
+                    groups_data[4].append({
+                        "name": f"{fname} [Sheet: '{s_orig}']",
+                        "path": f["path"],
+                        "rel_path": f["rel_path"],
+                        "ext": f["ext"],
+                        "pages": 1,
+                        "is_scanned": False,
+                        "group_id": 4,
+                        "doc_key": "BB_THU_HOI_VT",
+                        "doc_name": "Biên bản đánh giá / Bảng kê VTTB thu hồi nhập kho",
+                        "so_qd": f["so_qd"],
+                        "ngay": f["ngay"],
+                        "ngay_str": f["ngay_str"]
+                    })
+                if any(k in s for k in ['xpad', 'shin', 'vttb', 'phat sinh tang', 'tách vttb']):
+                    present_keys.add('QT_VTTB_A_CAP')
+                    groups_data[4].append({
+                        "name": f"{fname} [Sheet: '{s_orig}']",
+                        "path": f["path"],
+                        "rel_path": f["rel_path"],
+                        "ext": f["ext"],
+                        "pages": 1,
+                        "is_scanned": False,
+                        "group_id": 4,
+                        "doc_key": "QT_VTTB_A_CAP",
+                        "doc_name": "Bảng quyết toán vật tư, thiết bị A cấp cho ĐVTC",
+                        "so_qd": f["so_qd"],
+                        "ngay": f["ngay"],
+                        "ngay_str": f["ngay_str"]
+                    })
+                if any(k in s for k in ['quyết toán', 'quyet toan', 'thqt', 'qtth', 'bia qt', 'gtqt', '3a nđ254']):
+                    present_keys.add('QT_A_B')
 
     for g_id, g_info in QD202_GROUPS.items():
         for doc_key, doc_name, _ in g_info["required_docs"]:
