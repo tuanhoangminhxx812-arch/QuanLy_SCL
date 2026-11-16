@@ -223,11 +223,17 @@ def classify_file_into_qd202(filename, text="", is_scanned=False):
     txt_lower = text.lower() if text else ""
 
     # ── BƯỚC 1: SO KHỚP ƯU TIÊN THEO TÊN FILE ──
-    # Nhóm 3: Khởi công & Giám sát (rất đặc trưng)
+    # Nhóm 3: Khởi công & Giám sát & Nghiệm thu hoàn thành & Bảng XNKL
     if any(k in fn_lower for k in ["khoi cong", "khởi công"]):
         return 3, "TB_KHOI_CONG", "Thông báo khởi công công trình"
     if any(k in fn_lower for k in ["giam sat", "giám sát"]):
         return 3, "QD_GIAM_SAT", "Quyết định / Biên bản cử giám sát thi công"
+    if any(k in fn_lower for k in ["chiet tinh tung cong viec", "xnkl", "xac nhan khoi luong", "xác nhận khối lượng", "ntkl"]):
+        return 3, "BANG_XNKL", "Bảng xác nhận khối lượng hoàn thành (Bảng XNKL)"
+    if any(k in fn_lower for k in ["dua vao su dung", "đưa vào sử dụng", "bbnt va", "bbnt", "hoan thanh", "hoàn thành"]):
+        return 3, "BBNT_HOAN_THANH", "Biên bản nghiệm thu đưa vào sử dụng / hoàn thành"
+    if any(k in fn_lower for k in ["nt ky thuat", "nghiem thu ky thuat", "nghiệm thu kỹ thuật", "suat tieu hao", "truoc khi su dung", "ky thuat"]):
+        return 3, "BBNT_KY_THUAT", "Biên bản nghiệm thu kỹ thuật / thử nghiệm"
 
     # Nhóm 4: Hóa đơn & Thu hồi & Quyết toán
     if any(k in fn_lower for k in ["hoa don", "hóa đơn", "invoice", "1c26", "c26", "vat", "3500822067"]):
@@ -244,20 +250,12 @@ def classify_file_into_qd202(filename, text="", is_scanned=False):
         return 4, "TO_TRINH_DUYET_QT", "Tờ trình duyệt quyết toán danh mục SCL"
 
     # Nhóm 1: Khảo sát, Kế hoạch vốn, Phê duyệt PAKT - Dự toán
-    if any(k in fn_lower for k in ["khao sat", "khảo sát", "hu hong", "hư hỏng", "cbm", "rcm", "kstthh", "ks tthh", "khiem khuyet", "khiếm khuyết"]):
+    if any(k in fn_lower for k in ["khao sat", "khảo sát", "hu hong", "hư hỏng", "cbm", "rcm", "kstthh", "ks tthh"]):
         return 1, "BB_KHAO_SAT", "Biên bản khảo sát hư hỏng / đánh giá hiện trạng"
     if any(k in fn_lower for k in ["chap thuan", "chấp thuận", "ke hoach von", "kế hoạch vốn", "giao ke hoach", "danh muc scl", "2132"]):
         return 1, "QD_KH_VON", "Quyết định giao KH vốn / Văn bản chấp thuận danh mục SCL"
     if any(k in fn_lower for k in ["pa kt dt", "pa kt", "pa_kt", "pakt", "dự toán", "du toan"]):
         return 1, "QD_PAKT_DT", "Quyết định phê duyệt PAKT - Dự toán"
-
-    # Nhóm 3: Nghiệm thu kỹ thuật & Đưa vào sử dụng & Bảng XNKL
-    if any(k in fn_lower for k in ["chiet tinh tung cong viec", "xnkl", "xac nhan khoi luong", "xác nhận khối lượng", "ntkl"]):
-        return 3, "BANG_XNKL", "Bảng xác nhận khối lượng hoàn thành (Bảng XNKL)"
-    if any(k in fn_lower for k in ["dua vao su dung", "đưa vào sử dụng", "bbnt va", "bbnt", "hoan thanh", "hoàn thành"]):
-        return 3, "BBNT_HOAN_THANH", "Biên bản nghiệm thu đưa vào sử dụng / hoàn thành"
-    if any(k in fn_lower for k in ["nt ky thuat", "nghiem thu ky thuat", "nghiệm thu kỹ thuật", "suat tieu hao", "truoc khi su dung", "ky thuat"]):
-        return 3, "BBNT_KY_THUAT", "Biên bản nghiệm thu kỹ thuật / thử nghiệm"
 
     # Nhóm 2: Hợp đồng, Thỏa thuận, Phiếu xuất kho
     if any(k in fn_lower for k in ["ttgv", "thoa thuan", "thỏa thuận", "phu_luc_ttgv", "phu luc ttgv", "giao việc", "giao viec"]):

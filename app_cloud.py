@@ -618,6 +618,16 @@ elif "KIỂM TRA HỒ SƠ" in page:
             ghi_chu_val = str(mr.get('Ghi chú', '')).lower()
             if 'tự' in ghi_chu_val:
                 default_is_tu_lam = True
+        if 'live' in ten.lower() or 'line' in ten.lower():
+            default_is_tu_lam = True
+        if p_folder and os.path.exists(p_folder):
+            try:
+                for f in os.listdir(p_folder):
+                    if 'ttgv' in f.lower() or 'thoa thuan' in f.lower():
+                        default_is_tu_lam = True
+                        break
+            except Exception:
+                pass
 
         # Thanh công cụ quét & kiểm tra
         with st.container(border=True):
