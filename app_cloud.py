@@ -602,97 +602,373 @@ elif "KIỂM TRA HỒ SƠ" in page:
         ma_ct = str(row_th.get('Mã CT', '')).strip()
         from dossier_scanner import find_project_folder, scan_and_update_project, load_cached_scan_result
         from legal_checker import audit_dossier_legal
+        from dossier_auditor import (
+            scan_project_dossier_qd202,
+            reconcile_materials_scl,
+            export_excel_qd202_report,
+            QD202_GROUPS,
+            normalize_material_name
+        )
         
         p_folder = find_project_folder(ma_ct, ten)
         
+        # Nhận diện hình thức thực hiện (Tự làm hay Thuê ngoài)
+        default_is_tu_lam = False
+        if mr is not None:
+            ghi_chu_val = str(mr.get('Ghi chú', '')).lower()
+            if 'tự' in ghi_chu_val:
+                default_is_tu_lam = True
+
         # Thanh công cụ quét & kiểm tra
         with st.container(border=True):
-            col_f1, col_f2 = st.columns([3, 1])
+            col_f1, col_f2 = st.columns([3, 2])
             with col_f1:
                 if p_folder and os.path.exists(p_folder):
                     rel_p = os.path.relpath(p_folder, BASE_DIR)
                     st.markdown(f"📁 **Thư mục hồ sơ:** `{rel_p}` ✅")
-                    st.write(f"Công trình: **{ma_ct} - {ten}**")
+                    st.markdown(f"Công trình: **{ma_ct} - {ten}**")
                 else:
                     st.markdown(f"📁 **Thư mục hồ sơ:** Chưa tìm thấy thư mục cho **{ma_ct}** ⚠️")
-                    st.caption("💡 Chép tài liệu vào thư mục `Ho_so_cong_trinh/` để hệ thống tự động kiểm dò.")
+                    st.caption("💡 Chép tài liệu vào thư mục `Ho_so_cong_trinh/` để hệ thống tự động kiểm tra.")
+                
+                # Cho phép người dùng chuyển đổi hình thức thực hiện
+                hinh_thuc_sel = st.radio(
+                    "⚙️ **Hình thức thực hiện:**",
+                    ["Thuê ngoài thi công (Có Hợp đồng xây lắp)", "Tự làm (Thỏa thuận giao việc - TTGV)"],
+                    index=1 if default_is_tu_lam else 0,
+                    horizontal=True,
+                    key=f"ht_radio_{ma_ct}"
+                )
+                is_tu_lam = "Tự làm" in hinh_thuc_sel
+
             with col_f2:
-                btn_audit = st.button("🚀 Quét & Kiểm dò Pháp lý", type="primary", use_container_width=True, key=f"btn_audit_{ma_ct}")
+                btn_audit = st.button("🚀 Quét & Rà soát Hồ sơ QĐ 202", type="primary", use_container_width=True, key=f"btn_audit_{ma_ct}")
+                st.caption("💡 Tự động phân loại 4 nhóm, rà soát OCR, kiểm tra timeline và đối chiếu vật tư.")
 
-        if btn_audit:
-            with st.spinner("🔄 Đang chạy Bộ lọc kiểm dò 7 tiêu chí pháp lý cốt lõi..."):
-                res_scan = scan_and_update_project(ma_ct, ten)
-                st.session_state[f"scan_res_{ma_ct}"] = res_scan
-                st.rerun()
+        # Tự động quét hoặc nạp dữ liệu đã quét từ session state
+        need_rescan = (f"dossier_qd202_{ma_ct}" not in st.session_state) or btn_audit
+        if need_rescan:
+            with st.spinner("🔄 Đang quét & phân loại hồ sơ theo QĐ 202/QĐ-HĐTV..."):
+                dossier_res = scan_project_dossier_qd202(p_folder or "", ma_ct=ma_ct, ten_ct=ten, is_tu_lam=is_tu_lam)
+                recon_res = reconcile_materials_scl(p_folder or "")
+                
+                scanned_files = [f["path"] for f in dossier_res.get("all_files", [])]
+                audit_res = audit_dossier_legal(ma_ct, ten, scanned_files, mr if mr is not None else row_th, cd, p_folder or "")
+                
+                # Tạo báo cáo Excel chuẩn EVN
+                excel_bytes = export_excel_qd202_report(ma_ct, ten, dossier_res, recon_res)
 
-        # Nạp dữ liệu kiểm tra
-        res_scan = st.session_state.get(f"scan_res_{ma_ct}")
-        if not res_scan:
-            res_scan = load_cached_scan_result(ma_ct)
-
-        scanned_files = res_scan.get('scanned_files', []) if res_scan else []
-        if not scanned_files and p_folder and os.path.exists(p_folder):
-            for r_p, _, f_list in os.walk(p_folder):
-                for f in f_list:
-                    scanned_files.append(os.path.join(r_p, f))
-
-        audit_res = audit_dossier_legal(ma_ct, ten, scanned_files, mr if mr is not None else row_th, cd, p_folder or "")
-
-        # ── 1. BANNER KẾT LUẬN THANH TOÁN ──
-        if not audit_res['can_pay'] or audit_res['overall_status'] == 'DANGER':
-            st.error(f"""
-            ### 🛑 KẾT LUẬN: CHƯA ĐỦ ĐIỀU KIỆN THANH TOÁN / KẾT THÚC HỢP ĐỒNG!
-            **Lý do:** Hồ sơ còn tồn tại các lỗi pháp lý nghiêm trọng (màu đỏ bên dưới) cần khắc phục hoàn tất trước khi trình Giám đốc phê duyệt chi tiền.
-            """)
-        elif audit_res['overall_status'] == 'WARNING':
-            st.warning(f"""
-            ### ⚠️ KẾT LUẬN: CẦN BỔ SUNG & RÀ SOÁT CHỨNG TỪ
-            Hồ sơ cơ bản đáp ứng, nhưng cần bổ sung các tài liệu còn thiếu để đảm bảo an toàn tuyệt đối khi thanh quyết toán.
-            """)
+                st.session_state[f"dossier_qd202_{ma_ct}"] = dossier_res
+                st.session_state[f"recon_scl_{ma_ct}"] = recon_res
+                st.session_state[f"audit_legal_{ma_ct}"] = audit_res
+                st.session_state[f"excel_bytes_{ma_ct}"] = excel_bytes
         else:
-            st.success(f"""
-            ### 🟢 KẾT LUẬN: ĐỦ ĐIỀU KIỆN THANH QUYẾT TOÁN HỢP ĐỒNG!
-            Hồ sơ tuân thủ 100% các quy định pháp lý, tên đơn vị, địa chỉ, tài khoản ngân hàng, chứng từ chất lượng CO/CQ và hóa đơn.
-            """)
+            dossier_res = st.session_state[f"dossier_qd202_{ma_ct}"]
+            recon_res = st.session_state[f"recon_scl_{ma_ct}"]
+            audit_res = st.session_state[f"audit_legal_{ma_ct}"]
+            excel_bytes = st.session_state.get(f"excel_bytes_{ma_ct}")
 
-        # ── 2. KHUNG CÁC VIỆC CẦN XỬ LÝ NGAY ──
-        if audit_res['action_items']:
-            with st.container(border=True):
-                st.markdown("### 📋 DANH SÁCH VIỆC CẦN XỬ LÝ NGAY ĐỂ HOÀN TẤT HỒ SƠ:")
-                st.caption("Anh hãy kiểm tra và đánh dấu các công việc đã thực hiện xong bên dưới:")
-                for idx_act, item in enumerate(audit_res['action_items']):
-                    st.checkbox(f"**{item}**", key=f"act_{ma_ct}_{idx_act}")
+        # Nút xuất file Excel chuẩn EVN
+        if excel_bytes:
+            st.download_button(
+                label="📥 Tải Báo Cáo Kiểm Tra Chuẩn EVN (.xlsx) - 4 Sheet Chuẩn QĐ 202",
+                data=excel_bytes,
+                file_name=f"BaoCao_KiemTra_SCL_QD202_{ma_ct}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"dl_excel_qd202_{ma_ct}",
+                use_container_width=True
+            )
 
-        # ── 3. BẢNG CHI TIẾT 7 TIÊU CHÍ KIỂM DÒ PHÁP LÝ ──
-        st.markdown("### 🔍 BẢNG CHI TIẾT 7 TIÊU CHÍ KIỂM DÒ PHÁP LÝ:")
-        for chk in audit_res['checks']:
-            icon = chk.get('icon', '⚪')
-            lvl = chk.get('level', 'OK')
-            border_color = "#ef4444" if lvl == "DANGER" else ("#f59e0b" if lvl == "WARNING" else "#22c55e")
+        # ── DASHBOARD KPI TỔNG THỂ ──
+        total_files = dossier_res.get("total_files", 0)
+        scanned_pdf_count = dossier_res.get("scanned_pdf_count", 0)
+        missing_count = len(dossier_res.get("missing_docs", []))
+        groups_data = dossier_res.get("groups", {})
+        active_groups_count = sum(1 for g in [1, 2, 3, 4] if len(groups_data.get(g, [])) > 0)
+        
+        recon_items = recon_res.get("items", [])
+        matched_items_count = recon_res.get("matched_count", 0)
+        mismatch_items_count = recon_res.get("surplus_count", 0) + recon_res.get("deficit_count", 0)
+
+        kp1, kp2, kp3, kp4 = st.columns(4)
+        with kp1:
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); border-radius:12px; padding:14px; text-align:center; color:white; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">📁 Tổng Hồ Sơ Đã Quét</div>
+                <div style="font-size:26px; font-weight:800; margin:4px 0;">{total_files} <span style="font-size:14px; font-weight:500;">tệp</span></div>
+                <div style="font-size:12px; opacity:0.9;">{active_groups_count}/4 nhóm QĐ 202 có tài liệu</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with kp2:
+            ocr_color = "#f59e0b" if scanned_pdf_count > 0 else "#10b981"
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg, #78350f, #d97706); border-radius:12px; padding:14px; text-align:center; color:white; box-shadow:0 4px 12px rgba(217,119,6,0.25);">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">📸 Cảnh Báo Scan Ảnh</div>
+                <div style="font-size:26px; font-weight:800; margin:4px 0;">{scanned_pdf_count} <span style="font-size:14px; font-weight:500;">file scan</span></div>
+                <div style="font-size:12px; opacity:0.9;">{"⚠️ Chưa có lớp chữ OCR" if scanned_pdf_count > 0 else "✅ Đã nhận diện text"}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with kp3:
+            recon_bg = "#10b981" if mismatch_items_count == 0 and len(recon_items) > 0 else ("#ef4444" if mismatch_items_count > 0 else "#64748b")
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg, #064e3b, #059669); border-radius:12px; padding:14px; text-align:center; color:white; box-shadow:0 4px 12px rgba(5,150,105,0.25);">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">⚖️ Đối Chiếu Vật Tư A Cấp</div>
+                <div style="font-size:26px; font-weight:800; margin:4px 0;">{matched_items_count}/{len(recon_items)} <span style="font-size:14px; font-weight:500;">mục</span></div>
+                <div style="font-size:12px; opacity:0.9;">{"🟢 100% Khớp khối lượng" if mismatch_items_count == 0 and len(recon_items) > 0 else f"🔴 Lệch: {mismatch_items_count} mục"}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with kp4:
+            can_pay = audit_res.get('can_pay', False)
+            ov_stat = audit_res.get('overall_status', 'DANGER')
+            stat_bg = "#10b981" if can_pay else ("#f59e0b" if ov_stat == "WARNING" else "#ef4444")
+            stat_title = "ĐỦ ĐIỀU KIỆN" if can_pay else ("CẦN BỔ SUNG" if ov_stat == "WARNING" else "CHƯA ĐỦ ĐK")
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg, {'#064e3b, #10b981' if can_pay else ('#78350f, #d97706' if ov_stat == 'WARNING' else '#7f1d1d, #ef4444')}); border-radius:12px; padding:14px; text-align:center; color:white; box-shadow:0 4px 12px rgba(0,0,0,0.25);">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">🚦 Kết Luận Thẩm Tra</div>
+                <div style="font-size:24px; font-weight:800; margin:4px 0;">{stat_title}</div>
+                <div style="font-size:12px; opacity:0.9;">{"✅ Hồ sơ hoàn chỉnh" if can_pay else f"⚠️ Còn thiếu {missing_count} danh mục"}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+
+        # ── 4 TABS KIỂM TRA CHUYÊN SÂU ──
+        tab_qd202, tab_vattu, tab_timeline, tab_ruiro = st.tabs([
+            "📋 4 Nhóm Hồ sơ QĐ 202",
+            "🔍 Đối chiếu Vật tư A cấp & XNKL",
+            "⏱️ Trình tự Thời gian",
+            "🚨 Cảnh báo & Danh mục Khắc phục"
+        ])
+
+        # ── TAB 1: 4 NHÓM HỒ SƠ QĐ 202 ──
+        with tab_qd202:
+            st.markdown("### 📋 RÀ SOÁT DANH MỤC 4 NHÓM HỒ SƠ THEO QUYẾT ĐỊNH 202/QĐ-HĐTV")
+            st.caption("Quy định chuẩn hóa toàn diện quy trình kiểm tra danh mục hồ sơ SCL từ giai đoạn chuẩn bị, thực hiện đến thanh quyết toán.")
             
-            with st.container(border=True):
-                c_title, c_stat = st.columns([3, 1])
-                with c_title:
-                    st.markdown(f"#### {icon} {chk['category']}: **{chk['title']}**")
-                    st.caption(f"📌 **Căn cứ pháp lý:** `{chk['rule']}`")
-                with c_stat:
-                    if lvl == "DANGER":
-                        st.markdown(f"<p style='color:#ef4444;font-weight:700;text-align:right;'>{chk.get('status_text', 'CHƯA ĐẠT')}</p>", unsafe_allow_html=True)
-                    elif lvl == "WARNING":
-                        st.markdown(f"<p style='color:#f59e0b;font-weight:700;text-align:right;'>{chk.get('status_text', 'LƯU Ý')}</p>", unsafe_allow_html=True)
+            for g_id, g_info in QD202_GROUPS.items():
+                g_files = groups_data.get(g_id, [])
+                # Kiểm tra các tài liệu yêu cầu còn thiếu trong nhóm này
+                g_missing = [m for m in dossier_res.get("missing_docs", []) if m.get("group_id") == g_id]
+                
+                has_files = len(g_files) > 0
+                is_complete = (len(g_missing) == 0) and has_files
+                
+                badge_html = "<span style='background:#10b981; color:white; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700;'>✅ ĐẦY ĐỦ</span>" if is_complete else f"<span style='background:#f59e0b; color:white; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700;'>⚠️ THIẾU {len(g_missing)} CHỨNG TỪ</span>"
+                
+                with st.container(border=True):
+                    c_g1, c_g2 = st.columns([4, 1])
+                    with c_g1:
+                        st.markdown(f"#### {g_info['name']}")
+                        st.caption(f"📌 {g_info['desc']}")
+                    with c_g2:
+                        st.markdown(f"<div style='text-align:right; margin-top:8px;'>{badge_html}</div>", unsafe_allow_html=True)
+
+                    # Hiển thị tài liệu đã tìm thấy
+                    if g_files:
+                        st.markdown("**📁 Hồ sơ đã thu thập được:**")
+                        for f in g_files:
+                            ocr_badge = "<span style='background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;'>⚠️ Scan ảnh (Chưa OCR)</span>" if f["is_scanned"] else "<span style='background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;'>✅ Text</span>"
+                            ext_badge = f"<span style='background:#e2e8f0; color:#1e293b; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600;'>{f['ext'].upper().replace('.', '')}</span>"
+                            qd_info = f" • Số: `{f['so_qd']}`" if f['so_qd'] else ""
+                            date_info = f" • Ngày: `{f['ngay_str']}`" if f['ngay_str'] else ""
+                            
+                            st.markdown(f"- {ext_badge} {ocr_badge} **{f['name']}** <br>&nbsp;&nbsp;&nbsp;&nbsp;↳ *Phân loại:* `{f['doc_name']}`{qd_info}{date_info}", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"<p style='color:#22c55e;font-weight:700;text-align:right;'>{chk.get('status_text', 'ĐẠT CHUẨN')}</p>", unsafe_allow_html=True)
+                        st.info("Chưa tìm thấy tệp hồ sơ nào thuộc nhóm này trong thư mục.")
 
-                st.write(chk['detail'])
-                st.info(f"💡 **Hướng xử lý chuẩn:** {chk['recommendation']}")
+                    # Hiển thị tài liệu còn thiếu
+                    if g_missing:
+                        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+                        st.markdown("**❌ Danh mục chứng từ còn thiếu cần bổ sung:**")
+                        for m in g_missing:
+                            sev_color = "#ef4444" if m.get("severity") == "DANGER" else "#f59e0b"
+                            st.markdown(f"<div style='color:{sev_color}; font-size:13px; font-weight:600; margin-left:10px;'>• ❌ {m['doc_name']}</div>", unsafe_allow_html=True)
+                            if is_tu_lam and "TTGV" in m.get("doc_key", ""):
+                                st.caption("&nbsp;&nbsp;&nbsp;&nbsp;📌 *Lưu ý công trình tự làm: Bắt buộc phải có Thỏa thuận giao việc (TTGV) giữa Giám đốc và Đội thực hiện.*")
 
-        # ── 4. THÔNG TIN HỒ SƠ ĐÃ QUÉT ĐƯỢC ──
-        with st.expander(f"📁 Danh sách {len(scanned_files)} tệp hồ sơ đã quét trong thư mục", expanded=False):
-            if scanned_files:
-                for f_path in scanned_files:
-                    st.write(f"- `{os.path.basename(f_path)}` *({os.path.relpath(f_path, BASE_DIR)})*")
+            # Hồ sơ chưa phân loại nếu có
+            unclassified = dossier_res.get("unclassified", [])
+            if unclassified:
+                with st.expander(f"📂 Tệp khác chưa phân loại ({len(unclassified)} tệp)", expanded=False):
+                    for f in unclassified:
+                        st.write(f"- `{f['name']}` *({f['ext'].upper()})*")
+
+        # ── TAB 2: ĐỐI CHIẾU VẬT TƯ A CẤP & BẢNG XNKL ──
+        with tab_vattu:
+            st.markdown("### 🔍 ĐỐI CHIẾU CHÉO VẬT TƯ A CẤP VỚI BẢNG NGHIỆM THU KHỐI LƯỢNG (XNKL)")
+            st.caption("Tự động bóc tách và đối chiếu giữa Biên bản giao nhận/xuất kho VTTB A cấp, Bảng quyết toán vật tư và Bảng xác nhận khối lượng hoàn thành (XNKL).")
+
+            with st.container(border=True):
+                c_s1, c_s2 = st.columns(2)
+                with c_s1:
+                    st.markdown(f"**📄 Nguồn Bảng XNKL:** `{recon_res.get('source_xnkl', 'Chưa nhận diện')}`")
+                    st.markdown(f"**📦 Nguồn Vật tư A cấp:** `{recon_res.get('source_vttb', 'Chưa nhận diện')}`")
+                with c_s2:
+                    st.markdown(f"**♻️ Nguồn Vật tư thu hồi (VTTH):** `{recon_res.get('source_vtth', 'Chưa nhận diện')}`")
+                    st.markdown(f"**📊 Kết quả:** **{recon_res.get('matched_count', 0)}** mục khớp • **{recon_res.get('surplus_count', 0)}** lệch thừa • **{recon_res.get('deficit_count', 0)}** lệch thiếu")
+
+            if not recon_items:
+                st.warning("⚠️ Chưa tìm thấy bảng biểu khối lượng vật tư trong các file Excel/PDF của công trình. Anh hãy kiểm tra xem file đã có các sheet như `BBNT KL hoàn thành`, `BBGN HH`, `BBDG VTTH` chưa nhé!")
             else:
-                st.info("Chưa có tệp scan nào trong thư mục công trình.")
+                col_fil1, col_fil2 = st.columns([2, 3])
+                with col_fil1:
+                    filter_status = st.radio("Bộ lọc vật tư:", ["Tất cả", "Chỉ hiển thị lệch", "Đã khớp"], horizontal=True, key=f"recon_filter_{ma_ct}")
+                with col_fil2:
+                    search_vt = st.text_input("🔍 Tìm kiếm tên vật tư:", "", placeholder="Nhập tên vật tư (ví dụ: xi-lanh, turbo, FCO, kẹp quai...)", key=f"search_vt_{ma_ct}")
+
+                # Lọc danh sách
+                filtered_items = []
+                for it in recon_items:
+                    if filter_status == "Chỉ hiển thị lệch" and it["status_code"] == "KHOP":
+                        continue
+                    if filter_status == "Đã khớp" and it["status_code"] != "KHOP":
+                        continue
+                    if search_vt.strip() and (search_vt.lower() not in it["ten_chuan"].lower() and search_vt.lower() not in it["ten_goc"].lower()):
+                        continue
+                    filtered_items.append(it)
+
+                # Hiển thị bảng đối chiếu
+                table_rows = []
+                for idx, it in enumerate(filtered_items, 1):
+                    badge_style = "color:#10b981; font-weight:700;" if it["status_code"] == "KHOP" else ("color:#ef4444; font-weight:700;" if it["status_code"] == "LECH_THUA" else "color:#f59e0b; font-weight:700;")
+                    row_bg = "background:rgba(239, 68, 68, 0.08);" if it["status_code"] == "LECH_THUA" else ("background:rgba(245, 158, 11, 0.08);" if it["status_code"] == "LECH_THIEU" else "")
+                    
+                    diff_val_str = f"+{it['chenh_lech']:g}" if it["chenh_lech"] > 0 else f"{it['chenh_lech']:g}"
+                    table_rows.append(f"""
+                    <tr style="{row_bg}">
+                        <td style="text-align:center;">{idx}</td>
+                        <td style="font-weight:600;">{it['ten_chuan']}</td>
+                        <td style="font-size:11px; color:#64748b;">{it['ten_goc']}</td>
+                        <td style="text-align:center;">{it['dvt']}</td>
+                        <td style="text-align:right;">{it['sl_xuat']:g}</td>
+                        <td style="text-align:right; font-weight:600;">{it['sl_qt']:g}</td>
+                        <td style="text-align:right;">{it['sl_thua']:g}</td>
+                        <td style="text-align:right; font-weight:600;">{it['sl_nt']:g}</td>
+                        <td style="text-align:right; font-weight:700; {badge_style}">{diff_val_str}</td>
+                        <td style="text-align:center; {badge_style}">{it['badge']} {it['ket_luan']}</td>
+                    </tr>
+                    """)
+
+                vt_table_html = f"""
+                <div style="overflow-x:auto; margin-top:10px; max-height:550px; border:1px solid #e2e8f0; border-radius:10px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px; font-family:'Inter', sans-serif;">
+                        <thead>
+                            <tr style="background:#f1f5f9; color:#1e293b; border-bottom:2px solid #cbd5e1; position:sticky; top:0;">
+                                <th style="padding:10px 6px; text-align:center;">STT</th>
+                                <th style="padding:10px 8px; text-align:left;">Tên Vật Tư (Chuẩn hóa)</th>
+                                <th style="padding:10px 8px; text-align:left;">Tên Gốc Trong Hồ Sơ</th>
+                                <th style="padding:10px 6px; text-align:center;">ĐVT</th>
+                                <th style="padding:10px 6px; text-align:right;">SL Xuất Kho</th>
+                                <th style="padding:10px 6px; text-align:right;">SL Quyết Toán</th>
+                                <th style="padding:10px 6px; text-align:right;">SL Thu Hồi</th>
+                                <th style="padding:10px 6px; text-align:right;">SL Nghiệm Thu XNKL</th>
+                                <th style="padding:10px 6px; text-align:right;">Chênh Lệch</th>
+                                <th style="padding:10px 8px; text-align:center;">Kết Luận</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {''.join(table_rows)}
+                        </tbody>
+                    </table>
+                </div>
+                """
+                st.markdown(vt_table_html, unsafe_allow_html=True)
+                st.caption("📌 **Quy tắc kiểm tra chuẩn EVN:** `Chênh lệch = SL Quyết toán - SL Nghiệm thu XNKL`. Nếu có phát sinh vật tư thừa không dùng hết, phải lập Biên bản thu hồi nhập kho (VTTH) đầy đủ.")
+
+        # ── TAB 3: TRÌNH TỰ THỜI GIAN ──
+        with tab_timeline:
+            st.markdown("### ⏱️ RÀ SOÁT TÍNH HỢP LỆ VỀ TRÌNH TỰ THỜI GIAN (TIMELINE)")
+            st.caption("Kiểm tra logic trình tự thời gian giữa các mốc: Phê duyệt PAKT ➔ Ký Hợp đồng / TTGV ➔ Khởi công ➔ Nghiệm thu kỹ thuật ➔ Nghiệm thu hoàn thành ➔ Lập Quyết toán.")
+
+            timeline_warnings = dossier_res.get("timeline_warnings", [])
+            if timeline_warnings:
+                for tw in timeline_warnings:
+                    st.error(tw)
+            else:
+                st.success("🟢 Trình tự thời gian giữa Hợp đồng, Khởi công, Nghiệm thu và Quyết toán hoàn toàn hợp lệ, không phát sinh xung đột đảo lộn ngày tháng.")
+
+            timeline_events = dossier_res.get("timeline_events", dossier_res.get("timeline", []))
+            if timeline_events:
+                st.markdown("**📅 Bảng các mốc thời gian văn bản trích xuất được:**")
+                tl_rows = []
+                for idx, ev in enumerate(timeline_events, 1):
+                    g_name = QD202_GROUPS.get(ev.get("group_id"), {}).get("name", "Khác")
+                    tl_rows.append({
+                        "STT": idx,
+                        "Ngày văn bản": ev.get("date_str", ""),
+                        "Số hiệu văn bản": ev.get("so_qd") or "-",
+                        "Loại chứng từ": ev.get("doc_name", ""),
+                        "Tên file": ev.get("filename", ""),
+                        "Nhóm QĐ 202": g_name
+                    })
+                df_tl = pd.DataFrame(tl_rows)
+                st.dataframe(df_tl, use_container_width=True, hide_index=True)
+            else:
+                st.info("Chưa trích xuất được ngày tháng từ các file văn bản (có thể do tài liệu là bản scan ảnh chưa OCR).")
+
+        # ── TAB 4: CẢNH BÁO RỦI RO & DANH MỤC KHẮC PHỤC ──
+        with tab_ruiro:
+            st.markdown("### 🚨 TỔNG HỢP CẢNH BÁO RỦI RO & DANH MỤC VIỆC CẦN KHẮC PHỤC")
+            st.caption("Tổng hợp toàn diện các điểm nghẽn pháp lý và các thủ tục cần hoàn thiện để đủ điều kiện thanh quyết toán theo quy định.")
+
+            # Kết luận thanh toán
+            if not audit_res['can_pay'] or audit_res['overall_status'] == 'DANGER':
+                st.error("""
+                ### 🛑 KẾT LUẬN: CHƯA ĐỦ ĐIỀU KIỆN THANH TOÁN / KẾT THÚC HỢP ĐỒNG!
+                **Lý do:** Hồ sơ còn tồn tại các lỗi pháp lý nghiêm trọng hoặc thiếu chứng từ bắt buộc (màu đỏ bên dưới) cần khắc phục hoàn tất trước khi trình Giám đốc phê duyệt chi tiền.
+                """)
+            elif audit_res['overall_status'] == 'WARNING':
+                st.warning("""
+                ### ⚠️ KẾT LUẬN: CẦN BỔ SUNG & RÀ SOÁT CHỨNG TỪ
+                Hồ sơ cơ bản đáp ứng, nhưng cần bổ sung các tài liệu còn thiếu để đảm bảo an toàn tuyệt đối khi thanh quyết toán.
+                """)
+            else:
+                st.success("""
+                ### 🟢 KẾT LUẬN: ĐỦ ĐIỀU KIỆN THANH QUYẾT TOÁN HỢP ĐỒNG!
+                Hồ sơ tuân thủ 100% các quy định pháp lý, tên đơn vị, địa chỉ, tài khoản ngân hàng, chứng từ chất lượng CO/CQ và hóa đơn.
+                """)
+
+            # Checklist các việc cần xử lý
+            all_action_items = list(audit_res.get('action_items', []))
+            for m in dossier_res.get("missing_docs", []):
+                act_msg = f"Bổ sung chứng từ: {m['doc_name']} ({m['group_name']})"
+                if act_msg not in all_action_items:
+                    all_action_items.append(act_msg)
+            for tw in timeline_warnings:
+                if tw not in all_action_items:
+                    all_action_items.append(tw)
+
+            if all_action_items:
+                with st.container(border=True):
+                    st.markdown("#### 📋 DANH SÁCH CÔNG VIỆC CẦN HOÀN TẤT TRƯỚC KHI TRÌNH DUYỆT:")
+                    for idx_act, item in enumerate(all_action_items):
+                        st.checkbox(f"**{item}**", key=f"act_all_{ma_ct}_{idx_act}")
+
+            # Chi tiết 7 tiêu chí kiểm dò pháp lý
+            st.markdown("#### 🔍 CHI TIẾT 7 TIÊU CHÍ BỘ LỌC PHÁP LÝ THANH TOÁN:")
+            for chk in audit_res.get('checks', []):
+                icon = chk.get('icon', '⚪')
+                lvl = chk.get('level', 'OK')
+                border_color = "#ef4444" if lvl == "DANGER" else ("#f59e0b" if lvl == "WARNING" else "#22c55e")
+                
+                with st.container(border=True):
+                    c_title, c_stat = st.columns([3, 1])
+                    with c_title:
+                        st.markdown(f"##### {icon} {chk['category']}: **{chk['title']}**")
+                        st.caption(f"📌 **Căn cứ:** `{chk['rule']}`")
+                    with c_stat:
+                        if lvl == "DANGER":
+                            st.markdown(f"<p style='color:#ef4444;font-weight:700;text-align:right;'>{chk.get('status_text', 'CHƯA ĐẠT')}</p>", unsafe_allow_html=True)
+                        elif lvl == "WARNING":
+                            st.markdown(f"<p style='color:#f59e0b;font-weight:700;text-align:right;'>{chk.get('status_text', 'LƯU Ý')}</p>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<p style='color:#22c55e;font-weight:700;text-align:right;'>{chk.get('status_text', 'ĐẠT CHUẨN')}</p>", unsafe_allow_html=True)
+
+                    st.write(chk['detail'])
+                    st.info(f"💡 **Hướng xử lý chuẩn:** {chk['recommendation']}")
 
 
 

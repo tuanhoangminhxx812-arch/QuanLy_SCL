@@ -128,12 +128,10 @@ def find_project_folder(ma_ct, ten_ct=""):
         keywords = ["tu, ti", "tu", "ti", "đo đếm"]
     elif "fco" in ten_clean or "lbfco" in ten_clean:
         keywords = ["fco", "lbfco", "ngăn ngừa sự cố"]
-    elif "an hội" in ten_clean or "côn đảo" in ten_clean:
-        keywords = ["an hội", "côn đảo"]
-    elif "live-line" in ten_clean or "live line" in ten_clean:
-        keywords = ["live-line", "live line"]
-    elif "cummins" in ten_clean:
-        keywords = ["cummins"]
+    elif "cummins" in ten_clean or "g1" in ten_clean or "g2" in ten_clean or "vtad2610001" in ma_clean:
+        keywords = ["cummins", "g1_g2", "g1", "g2", "g1-2"]
+    elif "an hội" in ten_clean or "côn đảo" in ten_clean or "vtad2607001" in ma_clean:
+        keywords = ["an hội", "côn đảo", "nhà đặt"]
 
     for d_name, full_path in candidates:
         d_lower = d_name.lower()
